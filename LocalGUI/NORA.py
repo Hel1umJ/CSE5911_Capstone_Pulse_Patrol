@@ -121,7 +121,7 @@ def create_gui(): # Long, gnarly function to setup tkinter window, frames, grids
     """
     create_vital_frame(content_frame, 1, "Blood Pressure", "bp", vital_labels)
 
-    """s
+    """
     Row 2: Heart Rate; ECG Graph
     """
     create_vital_frame(content_frame, 2, "Heart Rate", "hr", vital_labels)
