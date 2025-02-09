@@ -6,7 +6,7 @@ from matplotlib.figure import Figure
 from PIL import Image, ImageTk
 
 #TODO: Retrieve sensor data
-#TODO: Send signal back to hardware interface process to actuate the flow rate servo with the current rate
+#TODO: Send signal back to hardware interface process to actuate the flow rate servo with the current rate (flow rate control)
 
 """
 Constants & Data
@@ -53,6 +53,7 @@ def update_vitals(root):
     Called once every UPDATE_INTERVAL to refresh displayed vital values
     """
     global t_step
+    global flow_rate
     #TODO: retrieve sensor information and pass it into set vitals here; return it in format below
     #sensor_info = getSensorInfo()
     #sensor_info = {"hr": 0, "spo2": 0, "bp": (0,0)}
@@ -81,10 +82,14 @@ def update_vitals(root):
 
     draw_graphs()
 
-    #TODO: Insert function to control flow rate of medicine here
-
+    #TODO: Implement flow rate control
+    update_flow(flow_rate)
   
     root.after(UPDATE_INTERVAL, update_vitals, root) #Update with sensor data every 1000ms
+
+def update_flow(flow_rate):
+    return 1 #TODO: Implement updating of flow rate.
+
 
 def set_vitals(vital_info):
     vital_labels["hr"].config(text=f"{vital_info['hr']} bpm", fg="red", font=FONTS["bold_label"])#heart Rate
@@ -157,11 +162,12 @@ def create_gui(): # Long, gnarly function to setup tkinter window, frames, grids
 
 
     """
-    Row 0: Logo; App Name
+    Row 0: App Name; Logo
     """
+    
     try:
         logo_img = Image.open("hospital_logo.jpg")
-        logo_img = logo_img.resize((100, 100), Image.LANCZOS) #Resize photo to fit into app
+        logo_img = logo_img.resize((100, 100), Image.LANCZOS)
         logo_photo = ImageTk.PhotoImage(logo_img)
     except Exception as e:
         print("Error loading logo:", e)
@@ -169,20 +175,15 @@ def create_gui(): # Long, gnarly function to setup tkinter window, frames, grids
 
     logo_frame = tk.Frame(content_frame, bg=BG_COLOR)
     logo_frame.grid(row=0, column=0, columnspan=2, sticky="nsew", pady=10)
+    logo_frame.columnconfigure(0, weight=0)
+    logo_frame.columnconfigure(1, weight=1)
 
+    header_label = tk.Label(logo_frame, text="NORA Vitals Monitor", bg=BG_COLOR, fg="black", font=("Helvetica", 20, "bold"))
+    header_label.grid(row=0, column=1, sticky="w", padx=20)
     if logo_photo != None:
         logo_label = tk.Label(logo_frame, image=logo_photo, bg=BG_COLOR)
         logo_label.image = logo_photo
-        logo_label.pack(side=tk.LEFT, padx=10)
-
-    header_label = tk.Label(
-        logo_frame,
-        text="Hospital Monitor",
-        bg=BG_COLOR,
-        fg="black",
-        font=("Helvetica", 20, "bold")
-    )
-    header_label.pack(side=tk.LEFT, padx=20, anchor="n")
+        logo_label.grid(row=0, column=0, sticky="w", padx=10)
 
     """
     Row 1: patient info; None
