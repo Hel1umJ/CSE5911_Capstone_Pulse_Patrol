@@ -7,6 +7,8 @@ from PIL import Image, ImageTk
 
 #TODO: Retrieve sensor data
 #TODO: Send signal back to hardware interface process to actuate the flow rate servo with the current rate (flow rate control)
+#TODO: Connect PI-4 to wifi, set static IP of pi-4, host website from pi-4, portforward or use webhost to host the website & communicate with pi4. 
+
 
 """
 Constants & Data
@@ -166,7 +168,7 @@ def create_gui(): # Long, gnarly function to setup tkinter window, frames, grids
     """
     
     try:
-        logo_img = Image.open("hospital_logo.jpg")
+        logo_img = Image.open("hospital_logo2.jpg")
         logo_img = logo_img.resize((100, 100), Image.LANCZOS)
         logo_photo = ImageTk.PhotoImage(logo_img)
     except Exception as e:
