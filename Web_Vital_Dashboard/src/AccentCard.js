@@ -28,24 +28,12 @@ function AccentCard() {
             path={"/heart_rate_val"}
             unit={"bpm"}
           />
-          <SmallSensorCard
-            iconName={"temperature-half"}
-            title={"Body Temp"}
-            path={null}
-            unit={"°F"}
-          />
         </div>
         <div className="accent-row">
           <SmallSensorCard
             iconName={"percent"}
             title={"SpO₂"}
             path={"/sp02_val"}
-            unit={"%"}
-          />
-          <SmallSensorCard
-            iconName={"percent"}
-            title={"CO₂"}
-            path={null}
             unit={"%"}
           />
         </div>
