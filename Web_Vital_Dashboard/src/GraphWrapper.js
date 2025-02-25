@@ -9,6 +9,27 @@ function GraphWrapper() {
   const [bottomGraphData, setBottomGraphData] = useState([]);
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      // Generate random data for topGraphData
+      const newTopData = Array.from({ length: 50 }, (_, i) => ({
+        x: i,
+        y: Math.random() * 2 - 1,
+      }));
+
+      // Generate random data for bottomGraphData
+      const newBottomData = Array.from({ length: 50 }, (_, i) => ({
+        x: i,
+        y: Math.random() * 2 - 1,
+      }));
+
+      setTopGraphData(newTopData);
+      setBottomGraphData(newBottomData);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     function getLastValues(array) {
       const xWidth = 200;
       if (array.length > xWidth) {
