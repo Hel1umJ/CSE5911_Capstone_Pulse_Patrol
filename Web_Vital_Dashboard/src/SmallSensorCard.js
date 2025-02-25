@@ -8,28 +8,7 @@ import TextRow from "./TextRow";
 function SmallSensorCard({ iconName, title, path, unit }) {
   const [data, setData] = useState("...");
 
-  // useEffect(() => {
-  //   if (path !== null) {
-  //     const interval = setInterval(async () => {
-  //       const result = await axios(path);
-  //       const value = result.data["value"];
-  //       //console.log(title + ": " + value + unit);
-  //       setData(value);
-  //     }, 1000);
-
-  //     return () => clearInterval(interval);
-  //   }
-  // }, [path, title, unit]);
-
   function displayValue() {
-    // Hard coding values for now
-    if (title === "Body Temp") {
-      return "98.6";
-    } else if (title === "CO₂") {
-      return "2";
-    }
-    // end hard coded values
-
     if (data !== "...") {
       return Math.round(data).toString();
     }
