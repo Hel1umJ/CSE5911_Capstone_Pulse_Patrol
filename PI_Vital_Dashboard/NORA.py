@@ -5,6 +5,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from PIL import Image, ImageTk
 
+import requests
+import time
+
 #TODO: Retrieve sensor data
 #TODO: Send signal back to hardware interface process to actuate the flow rate servo with the current rate (flow rate control)
 #TODO: Connect PI-4 to wifi, set static IP of pi-4, host website from pi-4, portforward or use webhost to host the website & communicate with pi4. 
@@ -20,6 +23,7 @@ FONTS = {
     "bold_label": ("Helvetica", 18, "bold"),
     "footer": ("Helvetica", 10, "italic")
 }#Tkinter font format is in tuple form; collection of fonts used throughout applet
+
 BG_COLOR = "#F4F4F4"
 UPDATE_INTERVAL = 1000 #in ms
 vital_labels = {} #dict to store references to each vital's value label; we will use these to update the sensor values
@@ -35,6 +39,8 @@ ecg_canvas = None
 
 flow_rate = 3.0 # Default, initial flow rate setting.
 
+SERVER_URL = "http://127.0.0.1:5000"
+
 
 """
 Helper Functions
@@ -49,6 +55,33 @@ def create_vital_frame(parent, row, col, label_text, value_key, label_dict):
     
     label_dict[value_key] = val_label #store label in dict so we can reference it later
     return frame
+
+def send_data(sensor_info):
+    """
+    POST to /data with a timestamp and the current vitals; server responds with flowrate
+    """
+    global flow_rate
+    bp_sys, bp_dia = sensor_info["bp"]  # sys, dia
+    payload = {
+        "timestamp": time.time(),
+        "flow_rate": flow_rate,
+        "hr": sensor_info["hr"],
+        "spo2": sensor_info["spo2"],
+        "bp_sys": bp_sys,
+        "bp_dia": bp_dia,
+    }
+    try:
+        r = requests.post(f"{SERVER_URL}/data", json=payload, timeout=2)
+        resp = r.json()
+        server_ts = resp.get("timestamp", 0)
+        server_flow = resp.get("flow_rate", flow_rate)
+        local_ts = payload["timestamp"]
+        if server_ts > local_ts:
+            #server's version is newer
+            flow_rate = server_flow
+    except Exception as e:
+        print("Error sending data to server:", e)
+
 
 def update_vitals(root):
     """
@@ -83,6 +116,9 @@ def update_vitals(root):
         time_axis.pop(0)
 
     draw_graphs()
+    
+    send_data(sensor_info) # send data to the server
+
 
     #TODO: Implement flow rate control
     update_flow(flow_rate)
