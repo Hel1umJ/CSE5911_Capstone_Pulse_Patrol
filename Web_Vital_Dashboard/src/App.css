@@ -17,8 +17,8 @@
 
 .row {
     flex: 1;
-    display: flex;
     gap: 48px;
+    padding-top: 10px;;
 }
 
 .col {
@@ -29,7 +29,7 @@
 
 .card, .lg-accent-card {
     border-radius: 24px;
-    padding: 28px 36px;
+    padding: 10px 36px;
 }
 
 .card {

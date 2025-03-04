@@ -3,3 +3,11 @@
     align-items: baseline;
     gap: 8px;
 }
+
+.small-sensor-value {
+    font-size: 50px;
+}
+
+.bloodPressure-sensor-value {
+    
+}

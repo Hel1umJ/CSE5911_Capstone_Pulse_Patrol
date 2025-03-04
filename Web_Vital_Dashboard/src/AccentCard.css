@@ -2,7 +2,6 @@
     background-color: var(--bgAccent1);
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: 8px;
 }
 
@@ -12,10 +11,10 @@
 
 .accent-col {
     margin-top: 16px;
-    display: flex;
-    flex-direction: column;
     gap: 24px;
-    flex: 1;
+    display: inline-flex;
+    width: 100%;
+    align-items: baseline;
 }
 
 .accent-row {
@@ -25,10 +24,27 @@
     flex: 1;
 }
 
+.user-info {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    margin-right: auto;
+}
+
+.toggle {
+    margin-left: auto;
+}
+
+.img-card {
+    width: 10%;
+}
+
 img {
-    width: 136px;
-    height: 136px;
+    width: 35%;
+    height: 35%;
     border-radius: 24px;
+    vertical-align: middle;
 }
 
 .lg-accent-card h1 {
