@@ -17,11 +17,15 @@ function SmallSensorCard({ iconName, title, path, unit }) {
 
   return (
     <div className="small-sensor-card">
-      <div className="circle-icon">
-        <FontAwesomeIcon icon={iconName} className="icon" />
+      <div className="sensor-title">
+        <div className="circle-icon">
+          <FontAwesomeIcon icon={iconName} className="icon" />
+        </div>
+        <h3>{title}</h3>
       </div>
-      <h3>{title}</h3>
-      <TextRow title={displayValue()} subtitle={unit} />
+      <div className="sensor-value">
+        <TextRow title={displayValue()} subtitle={unit} />
+      </div>
     </div>
   );
 }

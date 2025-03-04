@@ -1,6 +1,4 @@
 .toggle-container {
-    display: flex;
-    justify-content: end;
     align-items: center;
     margin-bottom: 14px;
     margin-right: 14px;
@@ -9,18 +7,21 @@
 .sun-icon {
     color: #000;
     margin-right: 8px;
+    height: 2em;
 }
 
 .moon-icon {
     color: #FFF;
     margin-left: 8px;
+    height: 2em;
+
 }
 
 .switch {
     position: relative;
     display: inline-block;
-    width: 36px;
-    height: 18px;
+    width: 72px;
+    height: 29px;
 }
 
 .switch input {
@@ -44,8 +45,8 @@
 .slider:before {
     position: absolute;
     content: "";
-    height: 12px;
-    width: 12px;
+    height: 24px;
+    width: 24px;
     left: 3px;
     bottom: 3px;
     background-color: white;
@@ -62,9 +63,9 @@ input:focus+.slider {
 }
 
 input:checked+.slider:before {
-    -webkit-transform: translateX(18px);
-    -ms-transform: translateX(18px);
-    transform: translateX(18px);
+    -webkit-transform: translateX(36px);
+    -ms-transform: translateX(36px);
+    transform: translateX(36px);
 }
 
 .slider.round {

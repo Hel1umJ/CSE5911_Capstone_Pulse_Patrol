@@ -2,6 +2,8 @@ import React from "react";
 import { faker } from "@faker-js/faker";
 import "./AccentCard.css";
 import SmallSensorCard from "./SmallSensorCard";
+import ThemeToggle from "./ThemeToggle";
+
 
 function AccentCard() {
   const name = faker.person.fullName();
@@ -10,15 +12,22 @@ function AccentCard() {
 
   return (
     <div className="lg-accent-card">
-      <img src={process.env.PUBLIC_URL + "/osuLogo.jpeg"} alt="OSU logo" />
-      <h1>{name}</h1>
-      <div className="text-row">
-        <h5 className="primary"># </h5>
-        <h5>{randomNumber}</h5>
-      </div>
-      <div className="text-row">
-        <h5 className="primary">DOB </h5>
-        <h5>{dob}</h5>
+      <div className="user-info">
+        <div className="text-column img-card">
+          <img src={process.env.PUBLIC_URL + "/osuLogo.jpeg"} alt="OSU logo" />
+        </div>
+        <div className="text-column">
+          <h1>{name}</h1>
+          <div className="text-row">
+            <h5 className="primary"># </h5>
+            <h5>{randomNumber}</h5>
+            <h5 className="primary">DOB </h5>
+            <h5>{dob}</h5>
+          </div>
+        </div>
+        <div className="toggle">
+          <ThemeToggle />
+        </div>
       </div>
       <div className="accent-col">
         <div className="accent-row">
