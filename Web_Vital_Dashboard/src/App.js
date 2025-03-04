@@ -22,7 +22,7 @@ function App() {
       <div className="row">
         <AccentCard />
       </div>
-      <div className="row">
+      <div className="row ecg">
         <h1>ECG</h1>
         <GraphWrapper />
       </div>

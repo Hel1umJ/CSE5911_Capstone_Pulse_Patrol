@@ -6,6 +6,8 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    padding-top: 0px !important;
+    overflow: hidden;
 }
 
 .grid {
@@ -16,15 +18,29 @@
 }
 
 .row {
-    flex: 1;
+    /* flex: 1 1 calc(33.333% - 32px);
+    height: fit-content;
+    width: 100%;
+    overflow-y: auto;
     gap: 48px;
-    padding-top: 10px;;
+    padding-top: 5px;; */
+    padding-top: 5px;
+    flex: 1; /* Each container takes equal space */
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Allow container to shrink */
+    overflow-y: auto; /* Prevent scroll bars */
+    
+}
+
+.ecg {
+    flex: 1.5;
 }
 
 .col {
     display: flex;
     flex-direction: column;
-    gap: 36px;
+    gap: 10px;
 }
 
 .card, .lg-accent-card {
@@ -39,4 +55,13 @@
 
 .card.lg {
     flex: 2;
+}
+@media (max-width: 768px) {
+    .app {
+        padding: 14px 24px 24px 24px; /* Reduce padding on smaller screens */
+    }
+
+    .container.middle {
+        flex: 1; /* Make the middle container equal size on smaller screens */
+    }
 }
