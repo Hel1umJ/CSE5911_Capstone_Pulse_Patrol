@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import TextRow from "./TextRow";
-import axios from "axios";
 
 function BloodPressureCard() {
   const [data, setData] = useState({ SYS: "...", DIA: "..." });
