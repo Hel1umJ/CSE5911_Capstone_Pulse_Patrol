@@ -1,0 +1,17 @@
+[Unit]
+Description=NORA Medical Monitoring System
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/NORA
+ExecStart=/home/pi/NORA/start_nora.sh
+Restart=on-failure
+RestartSec=5
+Environment=DISPLAY=:0
+# X11 authentication for GUI
+Environment=XAUTHORITY=/home/pi/.Xauthority
+
+[Install]
+WantedBy=multi-user.target
