@@ -1,62 +1,72 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ECGChart from "./ECGChart";
 import axios from "axios";
 
 import "./GraphWrapper.css";
 
 function GraphWrapper() {
-  const [topGraphData, setTopGraphData] = useState([]);
-  const [bottomGraphData, setBottomGraphData] = useState([]);
+  // We'll keep a single array of heart rate data points
+  const [heartRateData, setHeartRateData] = useState([]);
+  const dataPointsRef = useRef(0); // To keep track of total points for x-axis
+  
+  // Maximum number of points to display on graph
+  const MAX_POINTS = 50;
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Generate random data for topGraphData
-      const newTopData = Array.from({ length: 50 }, (_, i) => ({
-        x: i,
-        y: Math.random() * 2 - 1,
-      }));
-
-      // Generate random data for bottomGraphData
-      const newBottomData = Array.from({ length: 50 }, (_, i) => ({
-        x: i,
-        y: Math.random() * 2 - 1,
-      }));
-
-      setTopGraphData(newTopData);
-      setBottomGraphData(newBottomData);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    function getLastValues(array) {
-      const xWidth = 200;
-      if (array.length > xWidth) {
-        return array.slice(array.length - xWidth);
-      } else {
-        return array;
+    // Start with some initial empty data
+    const initialData = Array.from({ length: MAX_POINTS }, (_, i) => ({
+      x: i,
+      y: null // null will not be plotted
+    }));
+    setHeartRateData(initialData);
+    
+    // Function to fetch the latest data
+    const fetchData = async () => {
+      try {
+        const response = await axios.get("/data");
+        
+        // Extract heart rate from response
+        const newHeartRate = response.data.heart_rate;
+        
+        // Create a new data point
+        const newPoint = {
+          x: dataPointsRef.current,
+          y: newHeartRate
+        };
+        
+        // Increment our counter for the next point
+        dataPointsRef.current += 1;
+        
+        // Update state by adding the new point and keeping only the latest MAX_POINTS
+        setHeartRateData(prevData => {
+          // Add the new point
+          const updatedData = [...prevData, newPoint];
+          
+          // If we have more than MAX_POINTS, remove oldest points
+          if (updatedData.length > MAX_POINTS) {
+            return updatedData.slice(updatedData.length - MAX_POINTS);
+          }
+          
+          return updatedData;
+        });
+      } catch (error) {
+        console.error("Error fetching data:", error);
       }
-    }
+    };
 
-    // const interval = setInterval(async () => {
-    //   const result = await axios("/ecg_data");
-    //   const slicedArray = getLastValues(result.data);
-    //   setTopGraphData((_) => {
-    //     return slicedArray.map((point) => ({ x: null, y: point["A0"] }));
-    //   });
-    //   setBottomGraphData((_) => {
-    //     return slicedArray.map((point) => ({ x: null, y: point['A5'] }));
-    //   });
-    // }, 300);
+    // Set up polling interval (every 1 second)
+    const interval = setInterval(fetchData, 1000);
+    
+    // Initial fetch
+    fetchData();
 
-    //return () => clearInterval(interval);
+    // Clean up interval on component unmount
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div>
-      <ECGChart data={topGraphData} />
-      <ECGChart data={bottomGraphData} />
+      <ECGChart data={heartRateData} />
     </div>
   );
 }
