@@ -1,8 +1,10 @@
 import time
 import os
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS  # Import CORS
 
 app = Flask(__name__, static_folder="build", static_url_path="")
+CORS(app)  # Enable CORS for all routes
 
 DATA_STORE = {
     "flow_rate": 0.0,

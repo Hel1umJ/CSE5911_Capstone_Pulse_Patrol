@@ -24,6 +24,7 @@ function GraphWrapper() {
     const fetchData = async () => {
       try {
         const response = await axios.get("/data");
+        console.log("Response: ", response);
         
         // Extract heart rate from response
         const newHeartRate = response.data.heart_rate;

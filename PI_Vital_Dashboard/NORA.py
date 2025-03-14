@@ -146,7 +146,7 @@ def update_vitals(root):
     #TODO: retrieve sensor information and pass it into set vitals here; return it in format below
     #sensor_info = getSensorInfo()
     sensor_info = {
-        "hr": rand.randint(70,75), 
+        "hr": rand.randint(70,80), 
         "spo2": rand.randint(96,100), 
         "bp": (rand.randint(70,80),rand.randint(90,100))
     }
