@@ -7,7 +7,7 @@ app = Flask(__name__, static_folder="build", static_url_path="")
 CORS(app)  # Enable CORS for all routes
 
 DATA_STORE = {
-    "flow_rate": 0.0,
+    "flow_rate": 0,  # Changed to integer default
     "timestamp": 0.0,
     "heart_rate": 0,
     "spo2": 0,
@@ -25,11 +25,12 @@ def serve_react_app():
 @app.route("/data", methods=["POST"])
 def data_endpoint():
     """
-    Endpoint where both pi and server push their data to
+    Endpoint where the pi pushes sensor data to
     """
     body = request.get_json()
     incoming_ts = float(body["timestamp"])
-    incoming_flow = float(body.get("flow_rate", 0.0))
+    # Convert incoming flow to integer for consistency
+    incoming_flow = int(round(float(body.get("flow_rate", DATA_STORE["flow_rate"]))))
     incoming_hr = body.get("hr", None)
     incoming_spo2 = body.get("spo2", None)
     incoming_sys = body.get("bp_sys", None)
@@ -38,7 +39,7 @@ def data_endpoint():
     server_ts = DATA_STORE["timestamp"]
 
     if incoming_ts > server_ts:
-        #Pi's data is newer, update
+        # Pi's data is newer, update
         DATA_STORE["timestamp"] = incoming_ts
         DATA_STORE["flow_rate"] = incoming_flow
         if incoming_hr is not None:
@@ -57,6 +58,25 @@ def data_endpoint():
         "spo2": DATA_STORE["spo2"],
         "bp_sys": DATA_STORE["bp_sys"],
         "bp_dia": DATA_STORE["bp_dia"],
+    }), 200
+
+@app.route("/flow_rate", methods=["POST"])
+def update_flow_rate():
+    """
+    Dedicated endpoint for the frontend to update flow rate
+    This bypasses the timestamp check since the frontend is in control of flow rate
+    """
+    body = request.get_json()
+    # Ensure flow rate is a whole number
+    new_flow_rate = int(round(float(body.get("flow_rate", DATA_STORE["flow_rate"]))))
+    
+    # Always update the flow rate from this endpoint
+    DATA_STORE["flow_rate"] = new_flow_rate
+    DATA_STORE["timestamp"] = time.time()  # Update timestamp to current time
+    
+    return jsonify({
+        "flow_rate": DATA_STORE["flow_rate"],
+        "timestamp": DATA_STORE["timestamp"]
     }), 200
 
 @app.route("/data", methods=["GET"])

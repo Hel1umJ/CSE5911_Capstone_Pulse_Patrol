@@ -10,7 +10,6 @@ import requests
 import time
 
 #TODO: Retrieve sensor data
-#TODO: Send signal back to hardware interface process to actuate the flow rate servo with the current rate (flow rate control)
 #TODO: Connect PI-4 to wifi, set static IP of pi-4, host website from pi-4, portforward or use webhost to host the website & communicate with pi4. 
 
 
@@ -44,6 +43,7 @@ FONTS = {
 }
 
 UPDATE_INTERVAL = 1000 #in ms
+FLOW_RATE_CHECK_INTERVAL = 500  # Check flow rate every 2 seconds
 vital_labels = {} #dict to store references to each vital's value label; we will use these to update the sensor values
 MAX_POINTS = 30 #number of points to store on the graph; 1 point for every tick/update interval
 
@@ -54,7 +54,8 @@ t_step = 0 #counter to store update tick we are on (for x axis labels)
 ecg_plot = None 
 ecg_canvas = None
 
-flow_rate = 5.0 #Default, initial flow rate setting in mL/min.
+flow_rate = 5 #Default, initial flow rate setting in mL/min (changed to whole number)
+last_flow_update_time = 0  # Track when we last updated the flow rate from our side
 
 #Attempt to get Devices IP via socket trick; defauls to localhost
 import socket
@@ -83,7 +84,8 @@ def update_flow_display():
     """Update the flow rate display label with the current flow_rate value"""
     global flow_value_label
     if flow_value_label:
-        flow_value_label.config(text=f"{flow_rate:.1f}")
+        # Display as whole number
+        flow_value_label.config(text=f"{flow_rate}")
 
 def create_vital_frame(parent, row, col, label_text, value_key, label_dict, color=COLORS["primary"]):
     """Creates a card-style vital sign display with colored accent bar"""
@@ -110,29 +112,59 @@ def create_vital_frame(parent, row, col, label_text, value_key, label_dict, colo
     label_dict[value_key] = val_label #store label in dict so we can reference it later
     return frame
 
-def send_data(sensor_info):
+def check_flow_rate_updates(root):
     """
-    POST to /data with a timestamp and the current vitals; server responds with flowrate
+    Dedicated function to check for flow rate updates from the server
+    This runs separately from the sensor data update cycle
     """
     global flow_rate
+    try:
+        # Get the current flow rate from the server
+        response = requests.get(f"{SERVER_URL}/data", timeout=2)
+        if response.status_code == 200:
+            data = response.json()
+            server_flow = int(round(data.get("flow_rate", flow_rate)))
+            
+            # If server flow rate is different from our current flow rate, update ours
+            if server_flow != flow_rate:
+                # Update our local flow rate
+                flow_rate = server_flow
+                print(f"Flow rate updated from server: {flow_rate} mL/min")
+                
+                # Update the hardware
+                update_flow(flow_rate)
+                
+                # Update the display
+                update_flow_display()
+    except Exception as e:
+        print(f"Error checking flow rate updates: {e}")
+    
+    # Schedule the next check
+    root.after(FLOW_RATE_CHECK_INTERVAL, check_flow_rate_updates, root)
+
+def send_data(sensor_info):
+    """
+    POST to /data with a timestamp and the current vitals
+    Now just sends sensor data without expecting flow rate updates in return
+    """
+    global flow_rate, last_flow_update_time
     bp_sys, bp_dia = sensor_info["bp"]  # sys, dia
+    
+    # Record when we're updating the flow rate
+    if sensor_info["hr"] == 0 and sensor_info["spo2"] == 0 and bp_sys == 0 and bp_dia == 0:
+        # This is just a flow rate update, record the time
+        last_flow_update_time = time.time()
+    
     payload = {
         "timestamp": time.time(),
-        "flow_rate": flow_rate,
+        "flow_rate": flow_rate,  # Send the current flow rate
         "hr": sensor_info["hr"],
         "spo2": sensor_info["spo2"],
         "bp_sys": bp_sys,
         "bp_dia": bp_dia,
     }
     try:
-        r = requests.post(f"{SERVER_URL}/data", json=payload, timeout=2)
-        resp = r.json()
-        server_ts = resp.get("timestamp", 0)
-        server_flow = resp.get("flow_rate", flow_rate)
-        local_ts = payload["timestamp"]
-        if server_ts > local_ts:
-            #server's version is newer
-            flow_rate = server_flow
+        requests.post(f"{SERVER_URL}/data", json=payload, timeout=2)
     except Exception as e:
         print("Error sending data to server:", e)
 
@@ -164,17 +196,20 @@ def update_vitals(root):
     draw_graphs()
     
     send_data(sensor_info) # send data to the server
-
-    #TODO: Implement flow rate control
-    update_flow(flow_rate)
-    
-    # Make sure the display is updated with current flow_rate
-    update_flow_display()
   
     root.after(UPDATE_INTERVAL, update_vitals, root) #Update with sensor data every 1000ms
 
-def update_flow(flow_rate):
-    return 1 #TODO: Implement updating of flow rate.
+def update_flow(flow_rate_value):
+    """
+    Updates the hardware with the current flow rate
+    """
+    # Add your hardware control code here
+    # This function should take the flow_rate value and
+    # send the appropriate signals to your hardware
+    
+    print(f"Setting hardware flow rate to: {flow_rate_value} mL/min")
+    
+    return True  # Return status
 
 
 def set_vitals(vital_info):
@@ -344,7 +379,7 @@ def create_gui():
     flow_value_frame.pack(pady=10)
     
     global flow_value_label
-    flow_value_label = tk.Label(flow_value_frame, text=f"{flow_rate:.1f}",
+    flow_value_label = tk.Label(flow_value_frame, text=f"{flow_rate}",
                               font=("Helvetica", 36, "bold"), fg=COLORS["primary"],
                               bg=COLORS["bg_card"])
     flow_value_label.pack(side=tk.LEFT)
@@ -359,17 +394,27 @@ def create_gui():
     
     def increase_flow():
         global flow_rate
-        flow_rate += 0.5
+        # Increase by 1 to match the React frontend
+        flow_rate += 1
         if flow_rate > 30:
-            flow_rate = 30.0
+            flow_rate = 30
+        # Update the display
         update_flow_display()
+        # Update the hardware
+        update_flow(flow_rate)
+        # Send to server
         send_data({"hr": 0, "spo2": 0, "bp": (0, 0)})
     
     def decrease_flow():
         global flow_rate
-        if flow_rate > 0.5:
-            flow_rate -= 0.5
+        # Decrease by 1 to match the React frontend
+        if flow_rate > 0:
+            flow_rate -= 1
+        # Update the display
         update_flow_display()
+        # Update the hardware
+        update_flow(flow_rate)
+        # Send to server
         send_data({"hr": 0, "spo2": 0, "bp": (0, 0)})
     
     decrease_btn = create_styled_button(flow_control_frame, "−", decrease_flow, width=3, height=1)
@@ -423,5 +468,8 @@ def create_gui():
 
 if __name__ == "__main__":
     app = create_gui()
-    update_vitals(app) #start updates.
+    # Start the flow rate check loop
+    check_flow_rate_updates(app)
+    # Start the vital signs update loop
+    update_vitals(app)
     app.mainloop()

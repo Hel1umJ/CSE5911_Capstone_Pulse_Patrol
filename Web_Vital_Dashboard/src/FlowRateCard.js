@@ -1,119 +1,95 @@
 import React, { useEffect, useState } from "react";
-import PureKnob from "./PureKnob.js";
 import axios from "axios";
-
 import "./FlowRateCard.css";
 
 function FlowRateCard() {
-  const [knob, setKnob] = useState(null);
-  const [knobValue, setKnobValue] = useState(0);
-  const [setValue, setSetValue] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(
-    document.body.classList.contains("dark-mode")
-  );
-
+  const [flowRate, setFlowRate] = useState(0);
+  
+  // Fetch the current flow rate from the backend
   useEffect(() => {
-    const bodyClassChangeHandler = () => {
-      if (knob != null) {
-        setKnobValue(knob.getValue());
+    const fetchFlowRate = async () => {
+      try {
+        const response = await axios.get("/data");
+        if (response.data && response.data.flow_rate !== undefined) {
+          // Get the flow rate value as an integer
+          const flowRateValue = Math.round(response.data.flow_rate);
+          
+          // Update state if different from current value
+          if (flowRateValue !== flowRate) {
+            console.log("Updating flow rate from server:", flowRateValue, "mL/min");
+            setFlowRate(flowRateValue);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching flow rate:", error);
       }
-      setIsDarkMode(document.body.classList.contains("dark-mode"));
     };
 
-    document.body.addEventListener("change", bodyClassChangeHandler);
+    // Poll for updates every two seconds
+    const interval = setInterval(fetchFlowRate, 1000);
+    
+    // Initial fetch
+    fetchFlowRate();
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(interval);
+  }, [flowRate]);
 
-    return () => {
-      document.body.removeEventListener("change", bodyClassChangeHandler);
-    };
-  }, [knob]);
-
-  useEffect(() => {
-    const pureKnob = new PureKnob();
-    const newKnob = pureKnob.createKnob(175, 150);
-    newKnob.setProperty("angleStart", -0.63 * Math.PI);
-    newKnob.setProperty("angleEnd", 0.63 * Math.PI);
-    newKnob.setProperty("colorFG", isDarkMode ? "#FFF" : "#000");
-    newKnob.setProperty("colorBG", isDarkMode ? "#4A4A4A" : "#909090");
-    newKnob.setProperty("trackWidth", 0.3);
-    newKnob.setProperty("valMin", 0);
-    newKnob.setProperty("valMax", 100);
-    newKnob.setValue(knobValue);
-    const node = newKnob.node();
-    setKnob(newKnob);
-    const elem = document.getElementById("knob");
-    elem.innerHTML = "";
-    elem.appendChild(node);
-  }, [isDarkMode, knobValue]);
-
-  function changeValueBy(n) {
-    let oldValue = knob.getValue();
-    knob.setValue(oldValue + n);
-  }
-
-  function confirmValue() {
-    // const data = knob.getValue().toString();
-    // console.log("Set value: " + data);
-    // axios.post(
-    //   "/motor_instructions",
-    //   { value: data },
-    //   { headers: { "Content-Type": "application/json" } }
-    // );
-    // setSetValue(knob.getValue());
-  }
-
-  function stopMotor() {
-    // knob.setValue(0);
-    // const data = "S";
-    // axios.post(
-    //   "/motor_instructions",
-    //   { value: data },
-    //   { headers: { "Content-Type": "application/json" } }
-    // );
-    // console.log("Ser value: " + data);
-    // setSetValue(null);
-  }
-
-  function displaySetValue() {
-    if (setValue == null) {
-      return "Stopped";
-    } else if (setValue === -1) {
-      return "Reversing";
+  // Increase flow rate by 1
+  const increaseFlowRate = () => {
+    // Ensure we don't exceed maximum flow rate (30)
+    const newValue = Math.min(30, flowRate + 1);
+    
+    if (newValue !== flowRate) {
+      // Update local state
+      setFlowRate(newValue);
+      
+      // Send to server
+      sendFlowRateToServer(newValue);
     }
-    const unitVal = 0.45 + 0.01 * setValue;
-    return setValue + " (" + unitVal.toFixed(2) + " mL/s)";
-  }
+  };
 
-  function reverse() {
-    // knob.setValue(0);
-    // const data = "B";
-    // axios.post(
-    //   "/motor_instructions",
-    //   { value: data },
-    //   { headers: { "Content-Type": "application/json" } }
-    // );
-    // console.log("Ser value: " + data);
-    // setSetValue(-1);
-  }
+  // Decrease flow rate by 1
+  const decreaseFlowRate = () => {
+    // Ensure we don't go below 0
+    const newValue = Math.max(0, flowRate - 1);
+    
+    if (newValue !== flowRate) {
+      // Update local state
+      setFlowRate(newValue);
+      
+      // Send to server
+      sendFlowRateToServer(newValue);
+    }
+  };
+
+  // Helper function to send flow rate to the server
+  const sendFlowRateToServer = (value) => {
+    console.log("Setting flow rate to:", value, "mL/min");
+    
+    axios.post(
+      "/flow_rate",
+      { flow_rate: value },
+      { headers: { "Content-Type": "application/json" } }
+    ).then(response => {
+      console.log("Flow rate updated successfully:", response.data);
+    }).catch(error => {
+      console.error("Error updating flow rate:", error);
+    });
+  };
 
   return (
-    <div className="card lg">
-      <h1>Flow Rate</h1>
-      <div className="center">
-        <button className="rev-btn" onClick={() => reverse()}>
-          &#x23EA;
-        </button>
-        <div id="knob"></div>
-        <div className="btn-row">
-          <button onClick={() => changeValueBy(-5)}>-5</button>
-          <button onClick={() => changeValueBy(-1)}>-1</button>
-          <button onClick={() => stopMotor()}>&#x23F9;</button>
-          <button onClick={() => changeValueBy(1)}>+1</button>
-          <button onClick={() => changeValueBy(5)}>+5</button>
+    <div className="card col">
+      <h1>Flow Rate Control</h1>
+      <div className="flow-rate-simple">
+        <div className="flow-rate-value">
+          <span className="value">{flowRate}</span>
+          <span className="unit">mL/min</span>
         </div>
-        <button className="confirm-btn" onClick={() => confirmValue()}>
-          Confirm
-        </button>
-        <h2>Set Value: {displaySetValue()}</h2>
+        <div className="flow-control-buttons">
+          <button className="flow-button" onClick={decreaseFlowRate}>−</button>
+          <button className="flow-button" onClick={increaseFlowRate}>+</button>
+        </div>
       </div>
     </div>
   );

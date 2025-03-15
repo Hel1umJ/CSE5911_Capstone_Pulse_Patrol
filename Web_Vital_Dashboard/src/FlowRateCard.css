@@ -1,44 +1,92 @@
-.center {
-    position: relative;
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.card {
+  background-color: #FFFFFF;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  width: 100%;
 }
 
-.btn-row {
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-    
-.btn-row button {
-    width: 36px;
-    height: 36px;
-    color: var(--bg);
-    background-color: var(--text);
-    border: none;
-    border-radius: 8px;
+.card h1 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--text, #2C3E50);
+  font-size: 1.5rem;
+  text-align: center;
 }
 
-.confirm-btn {
-    height: 36px;
-    color: white;
-    background-color: #bb0000;
-    border: none;
-    border-radius: 8px;
-    margin-bottom: 8px;
+/* New simplified flow rate control styles */
+.flow-rate-simple {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
 }
 
-.rev-btn {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 36px;
-    height: 36px;
-    color: var(--bg);
-    background-color: var(--text);
-    border: none;
-    border-radius: 8px;
+.flow-rate-value {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.flow-rate-value .value {
+  font-size: 3.5rem;
+  font-weight: bold;
+  color: var(--text, #2C3E50);
+}
+
+.flow-rate-value .unit {
+  font-size: 1rem;
+  color: var(--text-secondary, #7F8C8D);
+  margin-left: 5px;
+}
+
+.flow-control-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.flow-button {
+  width: 60px;
+  height: 60px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  background-color: #000000;
+  transition: background-color 0.2s;
+}
+
+.flow-button:hover {
+  background-color: #333333;
+}
+
+/* Dark mode support */
+body.dark-mode .card {
+  background-color: #181818;
+}
+
+body.dark-mode .flow-rate-value .value {
+  color: #FFFFFF;
+}
+
+body.dark-mode .flow-rate-value .unit {
+  color: #E0E7FF;
+}
+
+body.dark-mode .card h1 {
+  color: #FFFFFF;
+}
+
+body.dark-mode .flow-button {
+  background-color: #000000;
+  color: #FFFFFF;
+}
+
+body.dark-mode .flow-button:hover {
+  background-color: #333333;
 }
