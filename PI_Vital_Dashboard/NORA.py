@@ -5,14 +5,12 @@ import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from PIL import Image, ImageTk
-
+import socketio
 import requests
 import time
+import threading
 
 #TODO: Retrieve sensor data
-#TODO: Send signal back to hardware interface process to actuate the flow rate servo with the current rate (flow rate control)
-#TODO: Connect PI-4 to wifi, set static IP of pi-4, host website from pi-4, portforward or use webhost to host the website & communicate with pi4. 
-
 
 """
 Constants & Data
@@ -54,9 +52,11 @@ t_step = 0 #counter to store update tick we are on (for x axis labels)
 ecg_plot = None 
 ecg_canvas = None
 
-flow_rate = 5.0 #Default, initial flow rate setting in mL/min.
+flow_rate = 0 #Default, initial flow rate setting in mL/min (whole number)
+flow_rate_changed_locally = False  # Flag to track local changes
+socket_connected = False  # Flag to track socket connection status
 
-#Attempt to get Devices IP via socket trick; defauls to localhost
+#Attempt to get Device's IP via socket trick; defaults to localhost
 import socket
 def get_local_ip():
     try:
@@ -72,18 +72,93 @@ def get_local_ip():
 SERVER_IP = get_local_ip()
 SERVER_PORT = 5000
 SERVER_URL = f"http://{SERVER_IP}:{SERVER_PORT}"
+SOCKET_URL = f"http://{SERVER_IP}:{SERVER_PORT}"
 
+# Initialize Socket.IO client
+sio = socketio.Client()
+
+"""
+Socket.IO Event Handlers
+"""
+@sio.event
+def connect():
+    global socket_connected
+    print("Connected to server via WebSocket")
+    socket_connected = True
+    
+    # Update the status indicator if available
+    if 'status_label' in globals() and status_label:
+        root.after(0, lambda: status_label.config(text="● Connected", fg=COLORS["success"]))
+
+@sio.event
+def disconnect():
+    global socket_connected
+    print("Disconnected from server")
+    socket_connected = False
+    
+    # Update the status indicator if available
+    if 'status_label' in globals() and status_label:
+        root.after(0, lambda: status_label.config(text="● Disconnected", fg=COLORS["danger"]))
+    
+    # Try to reconnect
+    try_reconnect()
+
+@sio.on("flow_rate_update")
+def on_flow_rate_update(data):
+    """Handle flow rate updates from server"""
+    global flow_rate, flow_value_label, flow_rate_changed_locally
+    
+    # If we made the change locally, ignore the update to avoid feedback loops
+    if flow_rate_changed_locally:
+        flow_rate_changed_locally = False
+        return
+    
+    # Update flow rate
+    new_flow_rate = int(data.get("flow_rate", flow_rate))
+    
+    # Update global flow rate
+    if new_flow_rate != flow_rate:
+        flow_rate = new_flow_rate
+        print(f"Flow rate updated from server: {flow_rate}")
+        
+        # Update hardware
+        update_flow(flow_rate)
+        
+        # Update display (need to use Tkinter's after method to safely update UI from another thread)
+        if flow_value_label and 'root' in globals():
+            root.after(0, lambda: flow_value_label.config(text=f"{flow_rate}"))
+
+def try_reconnect():
+    """Try to reconnect to the WebSocket server"""
+    try:
+        if not sio.connected:
+            sio.connect(SOCKET_URL)
+    except Exception as e:
+        print(f"Failed to reconnect: {e}")
+        # Schedule another attempt
+        threading.Timer(5.0, try_reconnect).start()
+
+def connect_to_socket():
+    """Connect to the WebSocket server"""
+    try:
+        sio.connect(SOCKET_URL)
+    except Exception as e:
+        print(f"Failed to connect to socket: {e}")
+        # Schedule a reconnection attempt
+        threading.Timer(5.0, try_reconnect).start()
 
 """
 Helper Functions
 """
 flow_value_label = None #global reference
+status_label = None  # Global reference to status label
 
 def update_flow_display():
     """Update the flow rate display label with the current flow_rate value"""
     global flow_value_label
     if flow_value_label:
-        flow_value_label.config(text=f"{flow_rate:.1f}")
+        # Display as whole number
+        flow_value_label.config(text=f"{flow_rate}")
 
 def create_vital_frame(parent, row, col, label_text, value_key, label_dict, color=COLORS["primary"]):
     """Creates a card-style vital sign display with colored accent bar"""
@@ -95,7 +170,7 @@ def create_vital_frame(parent, row, col, label_text, value_key, label_dict, colo
     color_bar = tk.Frame(frame, bg=color, width=6)
     color_bar.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
     
-    #nain card content frame
+    #main card content frame
     content = tk.Frame(frame, bg=COLORS["bg_card"])
     content.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     
@@ -112,27 +187,19 @@ def create_vital_frame(parent, row, col, label_text, value_key, label_dict, colo
 
 def send_data(sensor_info):
     """
-    POST to /data with a timestamp and the current vitals; server responds with flowrate
+    POST to /data with a timestamp and the current vitals
     """
-    global flow_rate
     bp_sys, bp_dia = sensor_info["bp"]  # sys, dia
+    
     payload = {
         "timestamp": time.time(),
-        "flow_rate": flow_rate,
         "hr": sensor_info["hr"],
         "spo2": sensor_info["spo2"],
         "bp_sys": bp_sys,
         "bp_dia": bp_dia,
     }
     try:
-        r = requests.post(f"{SERVER_URL}/data", json=payload, timeout=2)
-        resp = r.json()
-        server_ts = resp.get("timestamp", 0)
-        server_flow = resp.get("flow_rate", flow_rate)
-        local_ts = payload["timestamp"]
-        if server_ts > local_ts:
-            #server's version is newer
-            flow_rate = server_flow
+        requests.post(f"{SERVER_URL}/data", json=payload, timeout=2)
     except Exception as e:
         print("Error sending data to server:", e)
 
@@ -142,11 +209,11 @@ def update_vitals(root):
     Called once every UPDATE_INTERVAL to refresh displayed vital values
     """
     global t_step
-    global flow_rate
+    
     #TODO: retrieve sensor information and pass it into set vitals here; return it in format below
     #sensor_info = getSensorInfo()
     sensor_info = {
-        "hr": rand.randint(70,75), 
+        "hr": rand.randint(70,80), 
         "spo2": rand.randint(96,100), 
         "bp": (rand.randint(70,80),rand.randint(90,100))
     }
@@ -164,17 +231,19 @@ def update_vitals(root):
     draw_graphs()
     
     send_data(sensor_info) # send data to the server
-
-    #TODO: Implement flow rate control
-    update_flow(flow_rate)
-    
-    # Make sure the display is updated with current flow_rate
-    update_flow_display()
   
     root.after(UPDATE_INTERVAL, update_vitals, root) #Update with sensor data every 1000ms
 
-def update_flow(flow_rate):
-    return 1 #TODO: Implement updating of flow rate.
+def update_flow(flow_rate_value):
+    """
+    Updates the hardware with the current flow rate
+    """
+    # Add your hardware control code here
+    # This function should take the flow_rate value and
+    # send the appropriate signals to your hardware
+    
+    print(f"Setting hardware flow rate to: {flow_rate_value} mL/min")
+    return True  # Return  status
 
 
 def set_vitals(vital_info):
@@ -198,7 +267,6 @@ def draw_graphs():
     ecg_plot.set_facecolor(plt_bg_color)
     ecg_plot.set_title("ECG", color=plt_text_color, fontsize=12, fontweight='bold')
     ecg_plot.set_xlabel("Time (s)", color=plt_text_color, fontsize=10)
-    ecg_plot.set_ylabel("HR (bpm)", color=plt_text_color, fontsize=10)
     ecg_plot.plot(time_axis, ecg_data, color=COLORS["danger"], marker="o", markersize=4, linewidth=2, alpha=0.8)[0]
     ecg_plot.fill_between(time_axis, ecg_data, color=COLORS["danger"], alpha=0.1)
     ecg_plot.grid(True, linestyle='--', linewidth=0.5, color="#E5E5E5")
@@ -236,6 +304,8 @@ def create_gui():
     """
     global ecg_plot
     global ecg_canvas
+    global root
+    global status_label
     
     matplotlib.use("TkAgg")
     
@@ -288,7 +358,8 @@ def create_gui():
     status_frame = tk.Frame(header_frame, bg=COLORS["bg_card"])
     status_frame.pack(side=tk.RIGHT, padx=20)
     
-    status_label = tk.Label(status_frame, text="● Connected", fg=COLORS["success"],
+    # Initialize with disconnected status until socket connects
+    status_label = tk.Label(status_frame, text="● Disconnected", fg=COLORS["danger"],
                           bg=COLORS["bg_card"], font=FONTS["label"])
     status_label.pack()
     
@@ -344,7 +415,7 @@ def create_gui():
     flow_value_frame.pack(pady=10)
     
     global flow_value_label
-    flow_value_label = tk.Label(flow_value_frame, text=f"{flow_rate:.1f}",
+    flow_value_label = tk.Label(flow_value_frame, text=f"{flow_rate}",
                               font=("Helvetica", 36, "bold"), fg=COLORS["primary"],
                               bg=COLORS["bg_card"])
     flow_value_label.pack(side=tk.LEFT)
@@ -358,19 +429,67 @@ def create_gui():
     flow_control_frame.pack(pady=10)
     
     def increase_flow():
-        global flow_rate
-        flow_rate += 0.5
+        global flow_rate, flow_rate_changed_locally
+        
+        # Check socket connection
+        if not socket_connected:
+            print("Cannot adjust flow rate - socket disconnected")
+            return
+            
+        # Increase by 1 to match the React frontend
+        flow_rate += 1
         if flow_rate > 30:
-            flow_rate = 30.0
+            flow_rate = 30
+        
+        # Set flag to ignore echo from server
+        flow_rate_changed_locally = True
+        
+        # Update the display
         update_flow_display()
-        send_data({"hr": 0, "spo2": 0, "bp": (0, 0)})
+        
+        # Update the hardware
+        update_flow(flow_rate)
+        
+        # Send to server via WebSocket
+        try:
+            sio.emit("update_flow_rate", {"flow_rate": flow_rate})
+            print(f"Sent flow rate update via WebSocket: {flow_rate}")
+        except Exception as e:
+            print(f"Error sending flow rate update: {e}")
+            # Try to reconnect
+            if not sio.connected:
+                try_reconnect()
     
     def decrease_flow():
-        global flow_rate
-        if flow_rate > 0.5:
-            flow_rate -= 0.5
+        global flow_rate, flow_rate_changed_locally
+        
+        # Check socket connection
+        if not socket_connected:
+            print("Cannot adjust flow rate - socket disconnected")
+            return
+            
+        # Decrease by 1 to match the React frontend
+        if flow_rate > 0:
+            flow_rate -= 1
+        
+        # Set flag to ignore echo from server
+        flow_rate_changed_locally = True
+        
+        # Update the display
         update_flow_display()
-        send_data({"hr": 0, "spo2": 0, "bp": (0, 0)})
+        
+        # Update the hardware
+        update_flow(flow_rate)
+        
+        # Send to server via WebSocket
+        try:
+            sio.emit("update_flow_rate", {"flow_rate": flow_rate})
+            print(f"Sent flow rate update via WebSocket: {flow_rate}")
+        except Exception as e:
+            print(f"Error sending flow rate update: {e}")
+            # Try to reconnect
+            if not sio.connected:
+                try_reconnect()
     
     decrease_btn = create_styled_button(flow_control_frame, "−", decrease_flow, width=3, height=1)
     decrease_btn.pack(side=tk.LEFT, padx=5)
@@ -422,6 +541,19 @@ def create_gui():
     return root
 
 if __name__ == "__main__":
+    # Create GUI
     app = create_gui()
-    update_vitals(app) #start updates.
+    
+    # Connect to WebSocket in a separate thread
+    socket_thread = threading.Thread(target=connect_to_socket, daemon=True)
+    socket_thread.start()
+    
+    # Start the vital signs update loop
+    update_vitals(app)
+    
+    # Start the main loop
     app.mainloop()
+    
+    # Disconnect socket on exit
+    if sio.connected:
+        sio.disconnect()
