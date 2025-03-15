@@ -1,119 +1,141 @@
-import React, { useEffect, useState } from "react";
-import PureKnob from "./PureKnob.js";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
-
+import { io } from "socket.io-client";
 import "./FlowRateCard.css";
 
 function FlowRateCard() {
-  const [knob, setKnob] = useState(null);
-  const [knobValue, setKnobValue] = useState(0);
-  const [setValue, setSetValue] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(
-    document.body.classList.contains("dark-mode")
-  );
-
+  const [flowRate, setFlowRate] = useState(0);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const socketRef = useRef(null);
+  const localChangeRef = useRef(false);
+  
   useEffect(() => {
-    const bodyClassChangeHandler = () => {
-      if (knob != null) {
-        setKnobValue(knob.getValue());
+    // Get the server URL
+    const serverUrl = "http://localhost:5000";
+
+    console.log("Connecting to Socket.IO server at:", serverUrl);
+    
+    // Initialize Socket.IO connection
+    const socket = io(serverUrl, {
+      transports: ["websocket", "polling"],
+      withCredentials: false
+    });
+    
+    // Store the socket in the ref
+    socketRef.current = socket;
+    
+    // Setup event listeners
+    socket.on("connect", () => {
+      console.log("Connected to WebSocket server");
+      setSocketConnected(true);
+    });
+    
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+      setSocketConnected(false);
+    });
+    
+    socket.on("disconnect", () => {
+      console.log("Disconnected from WebSocket server");
+      setSocketConnected(false);
+    });
+    
+    socket.on("flow_rate_update", (data) => {
+      console.log("Received flow rate update:", data);
+      
+      // Only update if it wasn't a local change
+      if (!localChangeRef.current) {
+        setFlowRate(data.flow_rate);
+      } else {
+        // Reset the flag
+        localChangeRef.current = false;
       }
-      setIsDarkMode(document.body.classList.contains("dark-mode"));
+    });
+    
+    // Initial data fetch to get current flow rate
+    const fetchInitialData = async () => {
+      try {
+        const response = await axios.get("/data");
+        if (response.data && response.data.flow_rate !== undefined) {
+          setFlowRate(response.data.flow_rate);
+        }
+      } catch (error) {
+        console.error("Error fetching initial flow rate:", error);
+      }
     };
-
-    document.body.addEventListener("change", bodyClassChangeHandler);
-
+    
+    fetchInitialData();
+    
+    // Cleanup on unmount
     return () => {
-      document.body.removeEventListener("change", bodyClassChangeHandler);
+      socket.disconnect();
     };
-  }, [knob]);
-
-  useEffect(() => {
-    const pureKnob = new PureKnob();
-    const newKnob = pureKnob.createKnob(175, 150);
-    newKnob.setProperty("angleStart", -0.63 * Math.PI);
-    newKnob.setProperty("angleEnd", 0.63 * Math.PI);
-    newKnob.setProperty("colorFG", isDarkMode ? "#FFF" : "#000");
-    newKnob.setProperty("colorBG", isDarkMode ? "#4A4A4A" : "#909090");
-    newKnob.setProperty("trackWidth", 0.3);
-    newKnob.setProperty("valMin", 0);
-    newKnob.setProperty("valMax", 100);
-    newKnob.setValue(knobValue);
-    const node = newKnob.node();
-    setKnob(newKnob);
-    const elem = document.getElementById("knob");
-    elem.innerHTML = "";
-    elem.appendChild(node);
-  }, [isDarkMode, knobValue]);
-
-  function changeValueBy(n) {
-    let oldValue = knob.getValue();
-    knob.setValue(oldValue + n);
-  }
-
-  function confirmValue() {
-    // const data = knob.getValue().toString();
-    // console.log("Set value: " + data);
-    // axios.post(
-    //   "/motor_instructions",
-    //   { value: data },
-    //   { headers: { "Content-Type": "application/json" } }
-    // );
-    // setSetValue(knob.getValue());
-  }
-
-  function stopMotor() {
-    // knob.setValue(0);
-    // const data = "S";
-    // axios.post(
-    //   "/motor_instructions",
-    //   { value: data },
-    //   { headers: { "Content-Type": "application/json" } }
-    // );
-    // console.log("Ser value: " + data);
-    // setSetValue(null);
-  }
-
-  function displaySetValue() {
-    if (setValue == null) {
-      return "Stopped";
-    } else if (setValue === -1) {
-      return "Reversing";
+  }, []);
+  
+  // Increase flow rate by 1
+  const increaseFlowRate = () => {
+    if (!socketConnected) {
+      console.error("Socket not connected - cannot update flow rate");
+      return;
     }
-    const unitVal = 0.45 + 0.01 * setValue;
-    return setValue + " (" + unitVal.toFixed(2) + " mL/s)";
-  }
-
-  function reverse() {
-    // knob.setValue(0);
-    // const data = "B";
-    // axios.post(
-    //   "/motor_instructions",
-    //   { value: data },
-    //   { headers: { "Content-Type": "application/json" } }
-    // );
-    // console.log("Ser value: " + data);
-    // setSetValue(-1);
-  }
+    
+    // Ensure we don't exceed maximum flow rate (30)
+    const newValue = Math.min(30, flowRate + 1);
+    
+    if (newValue !== flowRate) {
+      // Set flag to ignore our own update when it comes back
+      localChangeRef.current = true;
+      
+      // Update local state immediately
+      setFlowRate(newValue);
+      
+      // Send to server via WebSocket
+      console.log("Sending flow rate update:", newValue);
+      socketRef.current.emit("update_flow_rate", { flow_rate: newValue });
+    }
+  };
+  
+  // Decrease flow rate by 1
+  const decreaseFlowRate = () => {
+    if (!socketConnected) {
+      console.error("Socket not connected - cannot update flow rate");
+      return;
+    }
+    
+    // Ensure we don't go below 0
+    const newValue = Math.max(0, flowRate - 1);
+    
+    if (newValue !== flowRate) {
+      // Set flag to ignore our own update when it comes back
+      localChangeRef.current = true;
+      
+      // Update local state immediately
+      setFlowRate(newValue);
+      
+      // Send to server via WebSocket
+      console.log("Sending flow rate update:", newValue);
+      socketRef.current.emit("update_flow_rate", { flow_rate: newValue });
+    }
+  };
 
   return (
-    <div className="card lg">
-      <h1>Flow Rate</h1>
-      <div className="center">
-        <button className="rev-btn" onClick={() => reverse()}>
-          &#x23EA;
-        </button>
-        <div id="knob"></div>
-        <div className="btn-row">
-          <button onClick={() => changeValueBy(-5)}>-5</button>
-          <button onClick={() => changeValueBy(-1)}>-1</button>
-          <button onClick={() => stopMotor()}>&#x23F9;</button>
-          <button onClick={() => changeValueBy(1)}>+1</button>
-          <button onClick={() => changeValueBy(5)}>+5</button>
+    <div className="card col">
+      <h1>Flow Rate Control</h1>
+      <div className="flow-rate-simple">
+        <div className="flow-rate-value">
+          <span className="value">{flowRate}</span>
+          <span className="unit">mL/min</span>
         </div>
-        <button className="confirm-btn" onClick={() => confirmValue()}>
-          Confirm
-        </button>
-        <h2>Set Value: {displaySetValue()}</h2>
+        {socketConnected ? (
+          <div className="flow-control-buttons">
+            <button className="flow-button" onClick={decreaseFlowRate}>−</button>
+            <button className="flow-button" onClick={increaseFlowRate}>+</button>
+          </div>
+        ) : (
+          <div className="connection-error">
+            Connecting to server...
+          </div>
+        )}
       </div>
     </div>
   );
