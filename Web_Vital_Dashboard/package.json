@@ -24,7 +24,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "react-scripts test --transformIgnorePatterns 'node_modules/(?!my-library-dir)/'",
     "eject": "react-scripts eject"
   },
   "proxy": "http://localhost:5000",
@@ -45,6 +45,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "transform": {
+      "\\.js$": "<rootDir>/node_modules/babel-jest"
   },
   "devDependencies": {
     "@faker-js/faker": "^8.4.1"
