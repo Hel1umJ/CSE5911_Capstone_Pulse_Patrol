@@ -22,6 +22,7 @@
     flex-direction: row;
     gap: 24px;
     flex: 1;
+    height: 100%;
 }
 
 .user-info {

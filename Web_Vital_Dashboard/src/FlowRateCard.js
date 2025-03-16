@@ -99,21 +99,22 @@ function FlowRateCard() {
     <div className="card lg">
       <h1>Flow Rate</h1>
       <div className="center">
-        <button className="rev-btn" onClick={() => reverse()}>
+        {/*<button className="rev-btn" onClick={() => reverse()}>*
           &#x23EA;
-        </button>
-        <div id="knob"></div>
+        </button> */}
         <div className="btn-row">
-          <button onClick={() => changeValueBy(-5)}>-5</button>
-          <button onClick={() => changeValueBy(-1)}>-1</button>
-          <button onClick={() => stopMotor()}>&#x23F9;</button>
-          <button onClick={() => changeValueBy(1)}>+1</button>
-          <button onClick={() => changeValueBy(5)}>+5</button>
+          <button className="control-btn" onClick={() => changeValueBy(-5)}>-5</button>
+          <button className="control-btn" onClick={() => changeValueBy(-1)}>-1</button>
+        
+         <div id="knob"></div>
+          {/*<button onClick={() => stopMotor()}>&#x23F9;</button>*/}
+          <button className="control-btn" onClick={() => changeValueBy(1)}>+1</button>
+          <button className="control-btn" onClick={() => changeValueBy(5)}>+5</button>
         </div>
         <button className="confirm-btn" onClick={() => confirmValue()}>
           Confirm
         </button>
-        <h2>Set Value: {displaySetValue()}</h2>
+        {/*<h2>Set Value: {displaySetValue()}</h2>*/}
       </div>
     </div>
   );

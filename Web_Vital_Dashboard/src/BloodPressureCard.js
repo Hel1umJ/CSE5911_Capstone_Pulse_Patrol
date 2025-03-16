@@ -23,18 +23,20 @@ function BloodPressureCard() {
   return (
     <div className="card col">
       <h1>Blood Pressure</h1>
-      <TextRow
-        title={displayValue("SYS")}
-        subtitle={"SYS"}
-        rev={true}
-        large={true}
-      />
-      <TextRow
-        title={displayValue("DIA")}
-        subtitle={"DIA"}
-        rev={true}
-        large={true}
-      />
+      <div className="val-col">
+        <TextRow
+          title={displayValue("SYS")}
+          subtitle={"SYS"}
+          rev={true}
+          large={true}
+        />
+        <TextRow
+          title={displayValue("DIA")}
+          subtitle={"DIA"}
+          rev={true}
+          large={true}
+        />
+      </div>
     </div>
   );
 }

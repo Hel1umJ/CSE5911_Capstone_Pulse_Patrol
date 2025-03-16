@@ -24,7 +24,7 @@
     overflow-y: auto;
     gap: 48px;
     padding-top: 5px;; */
-    padding-top: 5px;
+    padding-top: 20px;
     flex: 1; /* Each container takes equal space */
     display: flex;
     flex-direction: column;
