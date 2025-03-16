@@ -1,17 +1,35 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import TextRow from "./TextRow";
 
 function BloodPressureCard() {
   const [data, setData] = useState({ SYS: "...", DIA: "..." });
 
-  // useEffect(() => {
-  //   const interval = setInterval(async () => {
-  //     const result = await axios("/blood_pressure_val");
-  //     setData(result.data);
-  //   }, 1000);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get("/data");
+        
+        if (response.data) {
+          setData({
+            SYS: response.data.bp_sys,
+            DIA: response.data.bp_dia
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching blood pressure data:", error);
+      }
+    };
 
-  //   return () => clearInterval(interval);
-  // }, []);
+    // Set up polling interval (every 1 second)
+    const interval = setInterval(fetchData, 1000);
+    
+    // Initial fetch
+    fetchData();
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(interval);
+  }, []);
 
   function displayValue(key) {
     if (data[key] !== "...") {

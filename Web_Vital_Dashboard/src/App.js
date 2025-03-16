@@ -23,15 +23,15 @@ function App() {
         <AccentCard />
       </div>
       <div className="row ecg">
-        <h1>ECG</h1>
+        <h1>Heart Rate Monitoring</h1>
         <GraphWrapper />
       </div>
       <div className="row lg-accent-card">
         <div className="accent-col">
-          <div class="accent-row">
+          <div className="accent-row">
             <BloodPressureCard />
           </div>
-          <div class="accent-row">
+          <div className="accent-row">
             <FlowRateCard />
           </div>
         </div> 
