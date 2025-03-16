@@ -284,7 +284,7 @@ def draw_graphs():
     ecg_canvas.draw()
 
 
-def create_styled_button(parent, text, command, width=5, height=2, color=COLORS["primary"]):
+def create_styled_button(parent, text, command, width=8, height=3, color=COLORS["primary"]):
     """Creates a styled button with flat relief and custom colors"""
     btn = tk.Button(parent, text=text, command=command, width=width, height=height,
                    relief="flat", bg=color, fg="white", 
@@ -489,11 +489,11 @@ def create_gui():
             if not sio.connected:
                 try_reconnect()
     
-    decrease_btn = create_styled_button(flow_control_frame, "−", decrease_flow, width=3, height=1)
-    decrease_btn.pack(side=tk.LEFT, padx=5)
+    decrease_btn = create_styled_button(flow_control_frame, "−", decrease_flow, width=5, height=2)
+    decrease_btn.pack(side=tk.LEFT, padx=10)
     
-    increase_btn = create_styled_button(flow_control_frame, "＋", increase_flow, width=3, height=1)
-    increase_btn.pack(side=tk.LEFT, padx=5)
+    increase_btn = create_styled_button(flow_control_frame, "＋", increase_flow, width=5, height=2)
+    increase_btn.pack(side=tk.LEFT, padx=10)
     
     #VITAL SIGNS SECTION
     vitals_frame = ttk.Frame(main_frame)
