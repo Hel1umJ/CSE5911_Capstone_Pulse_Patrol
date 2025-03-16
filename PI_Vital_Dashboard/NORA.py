@@ -433,8 +433,7 @@ def create_gui():
         
         # Check socket connection
         if not socket_connected:
-            print("Cannot adjust flow rate - socket disconnected")
-            return
+            print("Warning - socket disconnected")
             
         # Increase by 1 to match the React frontend
         flow_rate += 1
@@ -465,8 +464,7 @@ def create_gui():
         
         # Check socket connection
         if not socket_connected:
-            print("Cannot adjust flow rate - socket disconnected")
-            return
+            print("Warning - socket disconnected")
             
         # Decrease by 1 to match the React frontend
         if flow_rate > 0:
