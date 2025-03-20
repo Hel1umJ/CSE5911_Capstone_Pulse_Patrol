@@ -582,13 +582,13 @@ def initialize_servo():
     
     if is_raspberry_pi:
         connection_methods = [
-            # Method 1: Default connection (localhost:8888)
+            #Default connection (localhost:8888)
             lambda: pigpio.pi(),
-            # Method 2: Try connecting to "soft" interface
+            #Try connecting to "soft" interface
             lambda: pigpio.pi("soft", 8888),
-            # Method 3: Try connecting to localhost explicitly
+            #Try connecting to localhost explicitly
             lambda: pigpio.pi("localhost", 8888),
-            # Method 4: Try connecting to 127.0.0.1 explicitly
+            #Try connecting to 127.0.0.1 explicitly
             lambda: pigpio.pi("127.0.0.1", 8888)
         ]
         
