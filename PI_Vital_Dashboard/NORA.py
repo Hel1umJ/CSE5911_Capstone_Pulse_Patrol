@@ -11,14 +11,15 @@ import time
 import threading
 import platform
 
-# Import pigpio if running on a Raspberry Pi
 is_raspberry_pi = platform.system() == "Linux" and platform.machine().startswith(("arm", "aarch"))
+servo = None
+
 if is_raspberry_pi:
     try:
-        import pigpio
-        print("Running on Raspberry Pi. PIGPIO imported successfully.")
+        from gpiozero import Servo
+        print("Running on Raspberry Pi. gpiozero imported successfully.")
     except ImportError:
-        print("Warning: Could not import pigpio. Servo control will be simulated.")
+        print("Warning: Could not import gpiozero. Servo control will be simulated.")
         is_raspberry_pi = False
 else:
     print("Not running on Raspberry Pi. Servo control will be simulated.")
@@ -55,14 +56,16 @@ FONTS = {
 }
 
 """
-PIGPIO Config
+GPIO Config
 """
 SERVO_PIN = 18  # GPIO pin for servo control (PWM); pin 12 or 6th pin down from top right.
-SERVO_MIN_PULSE_WIDTH = 500  #min pulse width in microseconds (0 degrees)
-SERVO_MAX_PULSE_WIDTH = 2500  #max pulse width in microseconds (180 degrees)
+SERVO_MIN_PULSE_WIDTH = 500  # min pulse width in microseconds (0 degrees)
+SERVO_MAX_PULSE_WIDTH = 2500  # max pulse width in microseconds (180 degrees)
 MIN_FLOW_RATE = 0
-MAX_FLOW_RATE = 30 
-pi = None  #pigpio instance
+MAX_FLOW_RATE = 30
+# Values for servo control with gpiozero
+SERVO_MIN_VALUE = -1  # gpiozero servo minimum position value
+SERVO_MAX_VALUE = 1   # gpiozero servo maximum position value
 
 
 UPDATE_INTERVAL = 1000 #in ms
@@ -262,24 +265,27 @@ def update_flow(flow_rate_value):
     """
     Updates the hardware with the current flow rate
     
-    Maps the flow rate (0-30) to servo position (500-2500 microseconds pulse width)
+    Maps the flow rate (0-30) to servo position (-1 to 1 in gpiozero)
     """
-    global pi
+    global servo
     
-    #map flow rate from (0-30) to servo pulse width range (SERVO_MIN_PULSE_WIDTH to SERVO_MAX_PULSE_WIDTH)
-    if is_raspberry_pi and pi is not None:
+    # Map flow rate from (0-30) to servo position range (-1 to 1)
+    if is_raspberry_pi and servo is not None:
         try:
-            pulse_width = SERVO_MIN_PULSE_WIDTH + (flow_rate_value / MAX_FLOW_RATE) * (SERVO_MAX_PULSE_WIDTH - SERVO_MIN_PULSE_WIDTH)
-            pulse_width = int(pulse_width) #must be an int val
+            # Map from flow_rate (0-30) to servo position (-1 to 1)
+            # At 0 flow rate, position is -1 (min position)
+            # At MAX_FLOW_RATE, position is 1 (max position)
+            position = SERVO_MIN_VALUE + (flow_rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
             
-            pi.set_servo_pulsewidth(SERVO_PIN, pulse_width)
-            print(f"Setting servo pulse width to: {pulse_width} μs for flow rate: {flow_rate_value} μL/min")
+            # Set servo position
+            servo.value = position
+            print(f"Setting servo position to: {position:.2f} for flow rate: {flow_rate_value} μL/min")
         except Exception as e:
             print(f"Error controlling servo: {e}")
             return False
     else:
-        #Not running on PI
-        print(f"Servo flow rate set to {flow_rate_value} μL/min")
+        # Not running on Pi or servo not initialized
+        print(f"Servo flow rate set to {flow_rate_value} μL/min (simulation mode)")
     
     return True
 
@@ -577,103 +583,50 @@ def create_gui():
     return root
 
 def initialize_servo():
-    """Initialize the pigpio daemon and configure the servo motor"""
-    global pi, is_raspberry_pi
+    """Initialize and configure the servo motor using gpiozero"""
+    global servo, is_raspberry_pi
     
     if is_raspberry_pi:
-        # Import os for environment variables
-        import os
-        
-        # Environment variables take precedence if they exist
-        host = os.environ.get('PIGPIO_ADDR', 'localhost')
-        port = int(os.environ.get('PIGPIO_PORT', 8888))
-        print(f"Using PIGPIO_ADDR={host}, PIGPIO_PORT={port}")
-        
-        connection_methods = [
-            # Method 1: Use environment variables or defaults
-            lambda: pigpio.pi(host, port),
-            # Method 2: Default connection (localhost:8888)
-            lambda: pigpio.pi(),
-            # Method 3: Try connecting to "soft" interface
-            lambda: pigpio.pi("soft", 8888),
-            # Method 4: Try local interface
-            lambda: pigpio.pi("localhost", 8888),
-            # Method 5: Try with explicit socket option
-            lambda: pigpio.pi(host, port, socket=True),
-            # Method 6: Try as local socket with specific flags
-            lambda: pigpio.pi(None, None, socket=True)
-        ]
-        
-        # First try to detect if pigpiod is running
-        import subprocess
         try:
-            result = subprocess.run(['pgrep', 'pigpiod'], capture_output=True)
-            if result.returncode != 0:
-                print("WARNING: pigpiod daemon doesn't appear to be running!")
-                print("Try running: sudo pigpiod -g")
-                # Still attempt connection methods
-            else:
-                print(f"pigpiod is running with PID: {result.stdout.decode().strip()}")
-        except Exception as e:
-            print(f"Couldn't check if pigpiod is running: {e}")
-        
-        for method_num, connect_method in enumerate(connection_methods, 1):
-            try:
-                print(f"Attempting pigpio connection method {method_num}...")
-                pi = connect_method()
-                
-                if pi.connected:
-                    print(f"Successfully connected to pigpio using method {method_num}")
-                    # Initialize servo motor by setting initial flow rate to 0
-                    pi.set_servo_pulsewidth(SERVO_PIN, SERVO_MIN_PULSE_WIDTH)
-                    print(f"Servo motor initialized on GPIO pin {SERVO_PIN}")
-                    return True
-                else:
-                    print(f"Method {method_num} failed: Not connected")
-            except Exception as e:
-                print(f"Method {method_num} failed with error: {e}")
-        
-        # Last resort: Try to start pigpiod ourselves
-        try:
-            print("Attempting to start pigpiod as a last resort...")
-            subprocess.run(['sudo', 'pigpiod', '-g'], check=True)
-            time.sleep(2)
+            # Initialize servo with default pin factory and custom min/max pulse width
+            # gpiozero automatically selects the best available pin factory
+            print(f"Initializing servo on GPIO pin {SERVO_PIN}...")
             
-            # Try one more connection
-            pi = pigpio.pi()
-            if pi.connected:
-                print("Successfully connected to pigpio after starting daemon!")
-                pi.set_servo_pulsewidth(SERVO_PIN, SERVO_MIN_PULSE_WIDTH)
-                print(f"Servo motor initialized on GPIO pin {SERVO_PIN}")
-                return True
+            # Initialize servo with custom min/max pulse width for better control
+            servo = Servo(
+                SERVO_PIN,
+                min_pulse_width=SERVO_MIN_PULSE_WIDTH/1000000,  # Convert to seconds
+                max_pulse_width=SERVO_MAX_PULSE_WIDTH/1000000   # Convert to seconds
+            )
+            
+            # Set initial position to minimum (corresponds to 0 flow rate)
+            servo.value = SERVO_MIN_VALUE
+            print(f"Servo initialized successfully on GPIO pin {SERVO_PIN}")
+            return True
+                
         except Exception as e:
-            print(f"Failed to start pigpiod: {e}")
-        
-        print("\nAll pigpio connection methods failed!")
-        print("Possible solutions:")
-        print("1. Ensure pigpiod is running with: 'sudo pigpiod -g'")
-        print("2. Try running with sudo: 'sudo python NORA.py'")
-        print("3. Try setting environment variables: 'export PIGPIO_ADDR=localhost PIGPIO_PORT=8888'")
-        print("4. Verify GPIO libraries are properly installed")
-        print("5. Continuing in simulation mode...")
-        
-        # Fallback to simulation mode if connection fails
-        is_raspberry_pi = False
-        return False
+            print(f"Error initializing servo: {e}")
+            print("\nServo initialization failed!")
+            print("Possible solutions:")
+            print("1. Ensure you have gpiozero installed: pip install gpiozero")
+            print("2. Try running with sudo: sudo python NORA.py")
+            print("3. Verify GPIO permissions (run sudo usermod -a -G gpio $USER)")
+            print("4. Continuing in simulation mode...")
+            
+            # Fallback to simulation mode if initialization fails
+            is_raspberry_pi = False
+            return False
     else:
         print("Running in simulation mode - servo initialization skipped")
         return True
 
 def cleanup_servo():
-    """Clean up pigpio resources"""
-    global pi
+    """Clean up servo resources"""
+    global servo
     
-    if is_raspberry_pi and pi is not None:
+    if is_raspberry_pi and servo is not None:
         try:
-            # Stop servo pulses
-            pi.set_servo_pulsewidth(SERVO_PIN, 0)
-            # Close pigpio connection
-            pi.stop()
+            servo.detach()
             print("Servo resources cleaned up")
         except Exception as e:
             print(f"Error cleaning up servo: {e}")
