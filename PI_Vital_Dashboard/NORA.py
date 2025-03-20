@@ -578,19 +578,44 @@ def create_gui():
 
 def initialize_servo():
     """Initialize the pigpio daemon and configure the servo motor"""
-    global pi
+    global pi, is_raspberry_pi
     
     if is_raspberry_pi:
+        # Import os for environment variables
+        import os
+        
+        # Environment variables take precedence if they exist
+        host = os.environ.get('PIGPIO_ADDR', 'localhost')
+        port = int(os.environ.get('PIGPIO_PORT', 8888))
+        print(f"Using PIGPIO_ADDR={host}, PIGPIO_PORT={port}")
+        
         connection_methods = [
-            #Default connection (localhost:8888)
+            # Method 1: Use environment variables or defaults
+            lambda: pigpio.pi(host, port),
+            # Method 2: Default connection (localhost:8888)
             lambda: pigpio.pi(),
-            #Try connecting to "soft" interface
+            # Method 3: Try connecting to "soft" interface
             lambda: pigpio.pi("soft", 8888),
-            #Try connecting to localhost explicitly
+            # Method 4: Try local interface
             lambda: pigpio.pi("localhost", 8888),
-            #Try connecting to 127.0.0.1 explicitly
-            lambda: pigpio.pi("127.0.0.1", 8888)
+            # Method 5: Try with explicit socket option
+            lambda: pigpio.pi(host, port, socket=True),
+            # Method 6: Try as local socket with specific flags
+            lambda: pigpio.pi(None, None, socket=True)
         ]
+        
+        # First try to detect if pigpiod is running
+        import subprocess
+        try:
+            result = subprocess.run(['pgrep', 'pigpiod'], capture_output=True)
+            if result.returncode != 0:
+                print("WARNING: pigpiod daemon doesn't appear to be running!")
+                print("Try running: sudo pigpiod -g")
+                # Still attempt connection methods
+            else:
+                print(f"pigpiod is running with PID: {result.stdout.decode().strip()}")
+        except Exception as e:
+            print(f"Couldn't check if pigpiod is running: {e}")
         
         for method_num, connect_method in enumerate(connection_methods, 1):
             try:
@@ -608,9 +633,32 @@ def initialize_servo():
             except Exception as e:
                 print(f"Method {method_num} failed with error: {e}")
         
-        print("All pigpio connection methods failed!")
-        print("Ensure pigpiod is running with: 'sudo pigpiod'")
-        print("You can also set PIGPIO_ADDR/PIGPIO_PORT environment variables if using a remote daemon.")
+        # Last resort: Try to start pigpiod ourselves
+        try:
+            print("Attempting to start pigpiod as a last resort...")
+            subprocess.run(['sudo', 'pigpiod', '-g'], check=True)
+            time.sleep(2)
+            
+            # Try one more connection
+            pi = pigpio.pi()
+            if pi.connected:
+                print("Successfully connected to pigpio after starting daemon!")
+                pi.set_servo_pulsewidth(SERVO_PIN, SERVO_MIN_PULSE_WIDTH)
+                print(f"Servo motor initialized on GPIO pin {SERVO_PIN}")
+                return True
+        except Exception as e:
+            print(f"Failed to start pigpiod: {e}")
+        
+        print("\nAll pigpio connection methods failed!")
+        print("Possible solutions:")
+        print("1. Ensure pigpiod is running with: 'sudo pigpiod -g'")
+        print("2. Try running with sudo: 'sudo python NORA.py'")
+        print("3. Try setting environment variables: 'export PIGPIO_ADDR=localhost PIGPIO_PORT=8888'")
+        print("4. Verify GPIO libraries are properly installed")
+        print("5. Continuing in simulation mode...")
+        
+        # Fallback to simulation mode if connection fails
+        is_raspberry_pi = False
         return False
     else:
         print("Running in simulation mode - servo initialization skipped")

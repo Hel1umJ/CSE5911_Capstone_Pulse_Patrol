@@ -44,12 +44,32 @@ fi
 
 # Start pigpio daemon if on Raspberry Pi
 if [ "$IS_RASPBERRY_PI" = true ]; then
-  if ! pgrep pigpiod > /dev/null; then
-    echo "Starting pigpio daemon..."
-    sudo pigpiod
-    sleep 1
+  # Force stop any existing pigpiod instance
+  echo "Stopping any existing pigpio daemon..."
+  sudo killall pigpiod 2>/dev/null
+  sleep 2
+  
+  echo "Starting pigpio daemon..."
+  # Start pigpiod with -g flag to allow connections from any host
+  sudo pigpiod -g
+  sleep 2
+  
+  # Verify pigpiod is running
+  if pgrep pigpiod > /dev/null; then
+    echo "pigpio daemon started successfully"
+    
+    # Set environment variables for pigpio connection
+    export PIGPIO_ADDR=localhost
+    export PIGPIO_PORT=8888
+    
+    # Check if daemon is responding
+    if timeout 5 python3 -c "import pigpio; pi=pigpio.pi(); print('PIGPIO TEST: Connection ' + ('OK' if pi.connected else 'FAILED')); pi.stop()" 2>/dev/null | grep -q "OK"; then
+      echo "PIGPIO connection test successful"
+    else
+      echo "WARNING: pigpio daemon is running but connection test failed"
+    fi
   else
-    echo "pigpio daemon is already running"
+    echo "ERROR: Failed to start pigpio daemon!"
   fi
 fi
 
