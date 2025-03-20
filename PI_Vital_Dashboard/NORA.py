@@ -9,6 +9,19 @@ import socketio
 import requests
 import time
 import threading
+import platform
+
+# Import pigpio if running on a Raspberry Pi
+is_raspberry_pi = platform.system() == "Linux" and platform.machine().startswith(("arm", "aarch"))
+if is_raspberry_pi:
+    try:
+        import pigpio
+        print("Running on Raspberry Pi. PIGPIO imported successfully.")
+    except ImportError:
+        print("Warning: Could not import pigpio. Servo control will be simulated.")
+        is_raspberry_pi = False
+else:
+    print("Not running on Raspberry Pi. Servo control will be simulated.")
 
 #TODO: Retrieve sensor data
 
@@ -40,6 +53,18 @@ FONTS = {
     "value_label": ("Helvetica", 24, "bold"),
     "footer": ("Helvetica", 10, "italic")
 }
+
+"""
+PIGPIO Config
+"""
+# Servo motor configuration
+SERVO_PIN = 18  # GPIO pin for servo control (PWM); pin 12 or 6th pin down from top right.
+SERVO_MIN_PULSE_WIDTH = 500  #min pulse width in microseconds (0 degrees)
+SERVO_MAX_PULSE_WIDTH = 2500  #max pulse width in microseconds (180 degrees)
+MIN_FLOW_RATE = 0
+MAX_FLOW_RATE = 30 
+pi = None  #pigpio instance
+
 
 UPDATE_INTERVAL = 1000 #in ms
 vital_labels = {} #dict to store references to each vital's value label; we will use these to update the sensor values
@@ -237,13 +262,27 @@ def update_vitals(root):
 def update_flow(flow_rate_value):
     """
     Updates the hardware with the current flow rate
-    """
-    # Add your hardware control code here
-    # This function should take the flow_rate value and
-    # send the appropriate signals to your hardware
     
-    print(f"Setting hardware flow rate to: {flow_rate_value} μL/min")
-    return True  # Return  status
+    Maps the flow rate (0-30) to servo position (500-2500 microseconds pulse width)
+    """
+    global pi
+    
+    #map flow rate from (0-30) to servo pulse width range (SERVO_MIN_PULSE_WIDTH to SERVO_MAX_PULSE_WIDTH)
+    if is_raspberry_pi and pi is not None:
+        try:
+            pulse_width = SERVO_MIN_PULSE_WIDTH + (flow_rate_value / MAX_FLOW_RATE) * (SERVO_MAX_PULSE_WIDTH - SERVO_MIN_PULSE_WIDTH)
+            pulse_width = int(pulse_width) #must be an int val
+            
+            pi.set_servo_pulsewidth(SERVO_PIN, pulse_width)
+            print(f"Setting servo pulse width to: {pulse_width} μs for flow rate: {flow_rate_value} μL/min")
+        except Exception as e:
+            print(f"Error controlling servo: {e}")
+            return False
+    else:
+        #Not running on PI
+        print(f"Servo flow rate set to {flow_rate_value} μL/min")
+    
+    return True
 
 
 def set_vitals(vital_info):
@@ -538,7 +577,49 @@ def create_gui():
     
     return root
 
+def initialize_servo():
+    """Initialize the pigpio daemon and configure the servo motor"""
+    global pi
+    
+    if is_raspberry_pi:
+        try:
+            # Initialize pigpio
+            pi = pigpio.pi()
+            if not pi.connected:
+                print("Failed to connect to pigpio daemon!")
+                return False
+            
+            # Initialize servo motor by setting initial flow rate to 0
+            pi.set_servo_pulsewidth(SERVO_PIN, SERVO_MIN_PULSE_WIDTH)
+            print(f"Servo motor initialized on GPIO pin {SERVO_PIN}")
+            return True
+        except Exception as e:
+            print(f"Error initializing servo: {e}")
+            return False
+    else:
+        print("Running in simulation mode - servo initialization skipped")
+        return True
+
+def cleanup_servo():
+    """Clean up pigpio resources"""
+    global pi
+    
+    if is_raspberry_pi and pi is not None:
+        try:
+            # Stop servo pulses
+            pi.set_servo_pulsewidth(SERVO_PIN, 0)
+            # Close pigpio connection
+            pi.stop()
+            print("Servo resources cleaned up")
+        except Exception as e:
+            print(f"Error cleaning up servo: {e}")
+
 if __name__ == "__main__":
+    # Initialize servo motor
+    servo_initialized = initialize_servo()
+    if not servo_initialized and is_raspberry_pi:
+        print("WARNING: Servo motor initialization failed!")
+    
     # Create GUI
     app = create_gui()
     
@@ -549,9 +630,12 @@ if __name__ == "__main__":
     # Start the vital signs update loop
     update_vitals(app)
     
-    # Start the main loop
-    app.mainloop()
-    
-    # Disconnect socket on exit
-    if sio.connected:
-        sio.disconnect()
+    try:
+        # Start the main loop
+        app.mainloop()
+    finally:
+        # Disconnect socket on exit
+        if sio.connected:
+            sio.disconnect()
+        
+        cleanup_servo()
