@@ -17,9 +17,34 @@ servo = None
 if is_raspberry_pi:
     try:
         from gpiozero import Servo
+        from gpiozero.pins.rpigpio import RPiGPIOFactory
+        from gpiozero.pins.lgpio import LGPIOFactory
+        from gpiozero.pins.pigpio import PiGPIOFactory
+        from gpiozero.pins.native import NativeFactory
+        
+        # Import backend libraries directly to ensure they're available
+        try:
+            import RPi.GPIO
+            print("RPi.GPIO imported successfully")
+        except ImportError:
+            print("RPi.GPIO not available")
+            
+        try:
+            import lgpio
+            print("lgpio imported successfully")
+        except ImportError:
+            print("lgpio not available")
+            
+        try:
+            import pigpio
+            print("pigpio imported successfully")
+        except ImportError:
+            print("pigpio not available")
+            
         print("Running on Raspberry Pi. gpiozero imported successfully.")
-    except ImportError:
-        print("Warning: Could not import gpiozero. Servo control will be simulated.")
+    except ImportError as e:
+        print(f"Warning: GPIO import error: {e}")
+        print("Servo control will be simulated.")
         is_raspberry_pi = False
 else:
     print("Not running on Raspberry Pi. Servo control will be simulated.")
@@ -587,35 +612,49 @@ def initialize_servo():
     global servo, is_raspberry_pi
     
     if is_raspberry_pi:
-        try:
-            # Initialize servo with default pin factory and custom min/max pulse width
-            # gpiozero automatically selects the best available pin factory
-            print(f"Initializing servo on GPIO pin {SERVO_PIN}...")
-            
-            # Initialize servo with custom min/max pulse width for better control
-            servo = Servo(
-                SERVO_PIN,
-                min_pulse_width=SERVO_MIN_PULSE_WIDTH/1000000,  # Convert to seconds
-                max_pulse_width=SERVO_MAX_PULSE_WIDTH/1000000   # Convert to seconds
-            )
-            
-            # Set initial position to minimum (corresponds to 0 flow rate)
-            servo.value = SERVO_MIN_VALUE
-            print(f"Servo initialized successfully on GPIO pin {SERVO_PIN}")
-            return True
+        print(f"Initializing servo on GPIO pin {SERVO_PIN}...")
+        
+        # Try each pin factory in succession, starting with the most modern ones
+        factories = [
+            ('LGPIOFactory', LGPIOFactory),
+            ('RPiGPIOFactory', RPiGPIOFactory),
+            ('PiGPIOFactory', PiGPIOFactory),
+            ('NativeFactory', NativeFactory)
+        ]
+        
+        for factory_name, factory_class in factories:
+            try:
+                print(f"Trying {factory_name}...")
+                pin_factory = factory_class()
                 
-        except Exception as e:
-            print(f"Error initializing servo: {e}")
-            print("\nServo initialization failed!")
-            print("Possible solutions:")
-            print("1. Ensure you have gpiozero installed: pip install gpiozero")
-            print("2. Try running with sudo: sudo python NORA.py")
-            print("3. Verify GPIO permissions (run sudo usermod -a -G gpio $USER)")
-            print("4. Continuing in simulation mode...")
-            
-            # Fallback to simulation mode if initialization fails
-            is_raspberry_pi = False
-            return False
+                # Initialize servo with explicit pin factory and custom min/max pulse width
+                servo = Servo(
+                    SERVO_PIN,
+                    pin_factory=pin_factory,
+                    min_pulse_width=SERVO_MIN_PULSE_WIDTH/1000000,  # Convert to seconds
+                    max_pulse_width=SERVO_MAX_PULSE_WIDTH/1000000   # Convert to seconds
+                )
+                
+                # Set initial position to minimum (corresponds to 0 flow rate)
+                servo.value = SERVO_MIN_VALUE
+                print(f"Servo initialized successfully on GPIO pin {SERVO_PIN} using {factory_name}")
+                return True
+            except Exception as e:
+                print(f"Failed to initialize with {factory_name}: {e}")
+        
+        # If we got here, all attempts failed
+        print("\nServo initialization failed with all pin factories!")
+        print("Possible solutions:")
+        print("1. Ensure you have GPIO libraries installed:")
+        print("   sudo apt-get install python3-lgpio python3-rpi.gpio")
+        print("   sudo pip install RPi.GPIO lgpio")
+        print("2. Try running with sudo: sudo python NORA.py")
+        print("3. Verify GPIO permissions (run sudo usermod -a -G gpio $USER)")
+        print("4. Continuing in simulation mode...")
+        
+        # Fallback to simulation mode if initialization fails
+        is_raspberry_pi = False
+        return False
     else:
         print("Running in simulation mode - servo initialization skipped")
         return True
