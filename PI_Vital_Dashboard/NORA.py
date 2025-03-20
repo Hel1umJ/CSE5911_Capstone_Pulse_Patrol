@@ -52,7 +52,7 @@ t_step = 0 #counter to store update tick we are on (for x axis labels)
 ecg_plot = None 
 ecg_canvas = None
 
-flow_rate = 0 #Default, initial flow rate setting in mL/min (whole number)
+flow_rate = 0 #Default, initial flow rate setting in μL/min (whole number)
 flow_rate_changed_locally = False  # Flag to track local changes
 socket_connected = False  # Flag to track socket connection status
 
@@ -242,7 +242,7 @@ def update_flow(flow_rate_value):
     # This function should take the flow_rate value and
     # send the appropriate signals to your hardware
     
-    print(f"Setting hardware flow rate to: {flow_rate_value} mL/min")
+    print(f"Setting hardware flow rate to: {flow_rate_value} μL/min")
     return True  # Return  status
 
 
@@ -420,7 +420,7 @@ def create_gui():
                               bg=COLORS["bg_card"])
     flow_value_label.pack(side=tk.LEFT)
     
-    flow_unit_label = tk.Label(flow_value_frame, text="mL/min",
+    flow_unit_label = tk.Label(flow_value_frame, text="μL/min",
                              font=FONTS["label"], fg=COLORS["text_secondary"],
                              bg=COLORS["bg_card"])
     flow_unit_label.pack(side=tk.LEFT, padx=(5, 0), anchor="s", pady=(0, 8))
