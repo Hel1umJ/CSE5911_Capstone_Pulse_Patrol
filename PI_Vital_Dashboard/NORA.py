@@ -57,7 +57,6 @@ FONTS = {
 """
 PIGPIO Config
 """
-# Servo motor configuration
 SERVO_PIN = 18  # GPIO pin for servo control (PWM); pin 12 or 6th pin down from top right.
 SERVO_MIN_PULSE_WIDTH = 500  #min pulse width in microseconds (0 degrees)
 SERVO_MAX_PULSE_WIDTH = 2500  #max pulse width in microseconds (180 degrees)
@@ -582,20 +581,37 @@ def initialize_servo():
     global pi
     
     if is_raspberry_pi:
-        try:
-            # Initialize pigpio
-            pi = pigpio.pi()
-            if not pi.connected:
-                print("Failed to connect to pigpio daemon!")
-                return False
-            
-            # Initialize servo motor by setting initial flow rate to 0
-            pi.set_servo_pulsewidth(SERVO_PIN, SERVO_MIN_PULSE_WIDTH)
-            print(f"Servo motor initialized on GPIO pin {SERVO_PIN}")
-            return True
-        except Exception as e:
-            print(f"Error initializing servo: {e}")
-            return False
+        connection_methods = [
+            # Method 1: Default connection (localhost:8888)
+            lambda: pigpio.pi(),
+            # Method 2: Try connecting to "soft" interface
+            lambda: pigpio.pi("soft", 8888),
+            # Method 3: Try connecting to localhost explicitly
+            lambda: pigpio.pi("localhost", 8888),
+            # Method 4: Try connecting to 127.0.0.1 explicitly
+            lambda: pigpio.pi("127.0.0.1", 8888)
+        ]
+        
+        for method_num, connect_method in enumerate(connection_methods, 1):
+            try:
+                print(f"Attempting pigpio connection method {method_num}...")
+                pi = connect_method()
+                
+                if pi.connected:
+                    print(f"Successfully connected to pigpio using method {method_num}")
+                    # Initialize servo motor by setting initial flow rate to 0
+                    pi.set_servo_pulsewidth(SERVO_PIN, SERVO_MIN_PULSE_WIDTH)
+                    print(f"Servo motor initialized on GPIO pin {SERVO_PIN}")
+                    return True
+                else:
+                    print(f"Method {method_num} failed: Not connected")
+            except Exception as e:
+                print(f"Method {method_num} failed with error: {e}")
+        
+        print("All pigpio connection methods failed!")
+        print("Ensure pigpiod is running with: 'sudo pigpiod'")
+        print("You can also set PIGPIO_ADDR/PIGPIO_PORT environment variables if using a remote daemon.")
+        return False
     else:
         print("Running in simulation mode - servo initialization skipped")
         return True
