@@ -4,6 +4,7 @@ import random as rand
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 from PIL import Image, ImageTk
 import socketio
 import requests
@@ -88,6 +89,8 @@ SERVO_MIN_PULSE_WIDTH = 500  # min pulse width in microseconds (0 degrees)
 SERVO_MAX_PULSE_WIDTH = 2500  # max pulse width in microseconds (180 degrees)
 MIN_FLOW_RATE = 0
 MAX_FLOW_RATE = 30
+MIN_DESIRED_VOL = 0
+MAX_DESIRED_VOL = 50
 # Values for servo control with gpiozero
 SERVO_MIN_VALUE = -1  # gpiozero servo minimum position value
 SERVO_MAX_VALUE = 1   # gpiozero servo maximum position value
@@ -106,7 +109,12 @@ ecg_canvas = None
 
 flow_rate = 0 #Default, initial flow rate setting in μL/min (whole number)
 flow_rate_changed_locally = False  # Flag to track local changes
+desired_vol = 0 #Default, initial flow rate setting in μl (whole number)
+desired_vol_changed_locally = False  # Flag to track local changes
 socket_connected = False  # Flag to track socket connection status
+
+procedure_running = False  # Flag to track if procedure is running
+vol_given = 0.0 # Used to track the total volume dispensed
 
 #Attempt to get Device's IP via socket trick; defaults to localhost
 import socket
@@ -212,6 +220,13 @@ def update_flow_display():
         # Display as whole number
         flow_value_label.config(text=f"{flow_rate}")
 
+def update_volume_display():
+    """Update the flow rate display label with the current flow_rate value"""
+    global desired_volume_label
+    if desired_volume_label:
+        # Display as whole number
+        desired_volume_label.config(text=f"{desired_vol}")        
+
 def create_vital_frame(parent, row, col, label_text, value_key, label_dict, color=COLORS["primary"]):
     """Creates a card-style vital sign display with colored accent bar"""
     
@@ -314,6 +329,25 @@ def update_flow(flow_rate_value):
     
     return True
 
+def update_volume_given():
+    """
+    Updates the anesthesia given based on flow rate and time.
+    """
+
+    global vol_given
+    global procedure_running
+
+    if procedure_running:   
+       vol_given = vol_given + (flow_rate / 60.0)
+
+    vol_given_label.config(text=f"Volume Given: {vol_given: .2f} μL")
+
+    if procedure_running and vol_given >= desired_vol:
+        procedure_running = False
+        procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
+        start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
+
+    root.after(1000, update_volume_given) 
 
 def set_vitals(vital_info):
     """Update vital sign displays with new values"""
@@ -352,7 +386,6 @@ def draw_graphs():
     ecg_canvas.figure.tight_layout()
     ecg_canvas.draw()
 
-
 def create_styled_button(parent, text, command, width=8, height=3, color=COLORS["primary"]):
     """Creates a styled button with flat relief and custom colors"""
     btn = tk.Button(parent, text=text, command=command, width=width, height=height,
@@ -361,12 +394,11 @@ def create_styled_button(parent, text, command, width=8, height=3, color=COLORS[
                    font=FONTS["subtitle"])
     return btn
 
-
 def create_gui():
     """
     Section Layout:
     Row 0: Header (spans both columns)
-    Row 1: Patient Info (column 0); Flow Rate Control (column 1)
+    Row 1: Patient Info (column 0); Flow Rate Control (column 0); Target Volume (column 1); Start Procedure (column 1)
     Row 2: Vital Signs Three equal cards spanning both columns
     Row 3: ECG Graph (spans both columns)
     Row 4: Footer (spans both columns)
@@ -396,10 +428,12 @@ def create_gui():
     main_frame.rowconfigure(5, weight=1)#ALlow last row to expand and fill space
     main_frame.columnconfigure(0, weight=1)
     main_frame.columnconfigure(1, weight=1)
+    main_frame.columnconfigure(2, weight=1)
+    main_frame.columnconfigure(3, weight=1)
     
     #HEADER SECTION
     header_frame = ttk.Frame(main_frame, style="Card.TFrame")
-    header_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+    header_frame.grid(row=0, column=0, columnspan=4, sticky="ew", padx=10, pady=10)
     
     try:
         logo_img = Image.open("hospital_logo2.jpg")
@@ -468,9 +502,99 @@ def create_gui():
     tk.Label(patient_info_frame, text="123456789", bg=COLORS["bg_card"],
             fg=COLORS["text_primary"], font=FONTS["label"]).grid(row=2, column=1, sticky="w", padx=10, pady=2)
     
+    #DESIRED VOLUME CONTROL SECTION
+    volume_frame = ttk.Frame(main_frame, style="Card.TFrame")
+    volume_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
+    
+    volume_title = tk.Label(volume_frame, text="Desired Volume", 
+                        bg=COLORS["bg_card"], fg=COLORS["text_primary"],
+                        font=FONTS["title"])
+    volume_title.pack(anchor="w", padx=20, pady=(15, 10))
+    
+    volume_display_frame = tk.Frame(volume_frame, bg=COLORS["bg_card"])
+    volume_display_frame.pack(fill=tk.X, padx=20, pady=10)
+    
+    volume_value_frame = tk.Frame(volume_display_frame, bg=COLORS["bg_card"])
+    volume_value_frame.pack(pady=10)
+    
+    global desired_volume_label
+    desired_volume_label = tk.Label(volume_value_frame, text=f"{desired_vol}",
+                              font=("Helvetica", 36, "bold"), fg=COLORS["primary"],
+                              bg=COLORS["bg_card"])
+    desired_volume_label.pack(side=tk.LEFT)
+    
+    volume_unit_label = tk.Label(volume_value_frame, text="μl",
+                             font=FONTS["label"], fg=COLORS["text_secondary"],
+                             bg=COLORS["bg_card"])
+    volume_unit_label.pack(side=tk.LEFT, padx=(5, 0), anchor="s", pady=(0, 8))
+    
+    volume_control_frame = tk.Frame(volume_display_frame, bg=COLORS["bg_card"])
+    volume_control_frame.pack(pady=10)
+    
+    def increase_volume():
+        global desired_vol, desired_vol_changed_locally
+        
+        # Check socket connection
+        if not socket_connected:
+            print("Warning - socket disconnected")
+            
+        # Increase by 1 to match the React frontend
+        desired_vol += 1
+        if desired_vol > 30:
+            desired_vol = 30
+        
+        # Set flag to ignore echo from server
+        desired_vol_changed_locally = True
+        
+        # Update the display
+        update_volume_display()
+        
+        # Send to server via WebSocket
+        try:
+            sio.emit("update_desired_vol", {"desired_vol": desired_vol})
+            print(f"Sent desired volume update via WebSocket: {desired_vol}")
+        except Exception as e:
+            print(f"Error sending desired volume update: {e}")
+            # Try to reconnect
+            if not sio.connected:
+                try_reconnect()
+    
+    def decrease_volume():
+        global desired_vol, desired_vol_changed_locally
+        
+        # Check socket connection
+        if not socket_connected:
+            print("Warning - socket disconnected")
+            
+        # Decrease by 1 to match the React frontend
+        if desired_vol > 0:
+            desired_vol -= 1
+        
+        # Set flag to ignore echo from server
+        desired_vol_changed_locally = True
+        
+        # Update the display
+        update_volume_display()
+        
+        # Send to server via WebSocket
+        try:
+            sio.emit("update_desired_vol", {"desired_vol": desired_vol})
+            print(f"Sent desired volume update via WebSocket: {desired_vol}")
+        except Exception as e:
+            print(f"Error sending desired volume update: {e}")
+            # Try to reconnect
+            if not sio.connected:
+                try_reconnect()
+    
+    decrease_btn = create_styled_button(volume_control_frame, "−", decrease_volume, width=5, height=2)
+    decrease_btn.pack(side=tk.LEFT, padx=10)
+    
+    increase_btn = create_styled_button(volume_control_frame, "＋", increase_volume, width=5, height=2)
+    increase_btn.pack(side=tk.LEFT, padx=10)
+    
     #FLOW RATE CONTROL SECTION
     flow_frame = ttk.Frame(main_frame, style="Card.TFrame")
-    flow_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
+    flow_frame.grid(row=1, column=2, sticky="nsew", padx=10, pady=10)
     
     flow_title = tk.Label(flow_frame, text="Flow Rate Control", 
                         bg=COLORS["bg_card"], fg=COLORS["text_primary"],
@@ -563,10 +687,52 @@ def create_gui():
     
     increase_btn = create_styled_button(flow_control_frame, "＋", increase_flow, width=5, height=2)
     increase_btn.pack(side=tk.LEFT, padx=10)
-    
+
+    #START/STOP PROCEDURE SECTION
+    procedure_frame = ttk.Frame(main_frame, style="Card.TFrame")
+    procedure_frame.grid(row=1, column=3, sticky="nsew", padx=10, pady=10)
+
+    procedure_title = tk.Label(procedure_frame, text="Procedure Control", 
+                            bg=COLORS["bg_card"], fg=COLORS["text_primary"],
+                            font=FONTS["title"])
+    procedure_title.pack(anchor="w", padx=20, pady=(15, 10))
+
+    global vol_given_label
+    vol_given_label = tk.Label(procedure_frame, text="Volume Given: 0 mL", 
+                                 bg=COLORS["bg_card"], fg=COLORS["text_secondary"], 
+                                 font=FONTS["label"])
+    vol_given_label.pack(anchor="w", padx=20, pady=10)
+
+    global procedure_status_label
+    procedure_status_label = tk.Label(procedure_frame, text="Status: Stopped",
+                                    bg=COLORS["bg_card"], fg=COLORS["danger"],
+                                    font=FONTS["subtitle"])
+    procedure_status_label.pack(pady=10)
+
+    def toggle_procedure():
+        global procedure_running
+        procedure_running = not procedure_running
+        
+        if procedure_running:
+            procedure_status_label.config(text="Status: Running", fg=COLORS["success"])
+            start_stop_btn.config(text="Stop Procedure", bg=COLORS["danger"])
+        else:
+            procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
+            start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
+        
+        # Send procedure state update to the server (if applicable)
+        try:
+            sio.emit("procedure_state", {"running": procedure_running})
+        except Exception as e:
+            print(f"Error sending procedure state update: {e}")
+
+    global start_stop_btn
+    start_stop_btn = create_styled_button(procedure_frame, "Start Procedure", toggle_procedure, width=20, height=2)
+    start_stop_btn.pack(pady=10)
+
     #VITAL SIGNS SECTION
     vitals_frame = ttk.Frame(main_frame)
-    vitals_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=10)
+    vitals_frame.grid(row=2, column=0, columnspan=4, sticky="nsew", pady=10)
     vitals_frame.columnconfigure(0, weight=1)
     vitals_frame.columnconfigure(1, weight=1)
     vitals_frame.columnconfigure(2, weight=1)
@@ -577,7 +743,7 @@ def create_gui():
     
     #ECG GRAPH SECTION
     graph_frame = ttk.Frame(main_frame, style="Card.TFrame")
-    graph_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
+    graph_frame.grid(row=3, column=0, columnspan=4, sticky="nsew", padx=10, pady=10)
     
     graph_title = tk.Label(graph_frame, text="ECG Monitoring", 
                           bg=COLORS["bg_card"], fg=COLORS["text_primary"],
@@ -685,7 +851,8 @@ if __name__ == "__main__":
     
     # Start the vital signs update loop
     update_vitals(app)
-    
+    update_volume_given()
+
     try:
         # Start the main loop
         app.mainloop()
