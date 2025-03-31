@@ -340,12 +340,16 @@ def update_volume_given():
     if procedure_running:   
        vol_given = vol_given + (flow_rate / 60.0)
 
-    vol_given_label.config(text=f"Volume Given: {vol_given: .2f} μL")
+    # vol_given_label.config(text=f"Volume Given: {vol_given: .2f} μL")
 
     if procedure_running and vol_given >= desired_vol:
         procedure_running = False
         procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
         start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
+
+    progress_bar["maximum"] = desired_vol
+    progress_bar["value"] = vol_given
+    vol_given_label.config(text=f"Volume Given: {vol_given: .2f} / {desired_vol} μL")
 
     root.after(1000, update_volume_given) 
 
@@ -391,7 +395,7 @@ def create_styled_button(parent, text, command, width=8, height=3, color=COLORS[
     btn = tk.Button(parent, text=text, command=command, width=width, height=height,
                    relief="flat", bg=color, fg="white", 
                    activebackground=COLORS["accent"], activeforeground="white",
-                   font=FONTS["subtitle"])
+                   font=FONTS["label"])
     return btn
 
 def create_gui():
@@ -703,6 +707,10 @@ def create_gui():
                                  font=FONTS["label"])
     vol_given_label.pack(anchor="w", padx=20, pady=10)
 
+    global progress_bar
+    progress_bar = ttk.Progressbar(procedure_frame, length=300, mode="determinate")
+    progress_bar.pack(pady=5)
+
     global procedure_status_label
     procedure_status_label = tk.Label(procedure_frame, text="Status: Stopped",
                                     bg=COLORS["bg_card"], fg=COLORS["danger"],
@@ -772,6 +780,7 @@ def create_gui():
     footer_text.pack(side=tk.RIGHT)
     
     return root
+
 
 def initialize_servo():
     """Initialize and configure the servo motor using gpiozero"""
