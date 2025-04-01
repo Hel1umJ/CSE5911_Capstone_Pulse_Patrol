@@ -46,6 +46,13 @@ else
   echo "Dependencies already installed"
 fi
 
+
+if ["IS_RASPBERRY_PI" = true]; then
+  #Enable SPI comm on RPI:
+  echo "Enabling SPI comm. on RPI..."
+  sudo raspi-config nonint do_spi 0 
+fi
+
 # Check GPIO access 
 if [ "$IS_RASPBERRY_PI" = true ]; then
   echo "Checking GPIO access..."

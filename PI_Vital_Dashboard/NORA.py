@@ -12,12 +12,13 @@ import time
 import threading
 import platform
 
+
 is_raspberry_pi = platform.system() == "Linux" and platform.machine().startswith(("arm", "aarch"))
 servo = None
 
 if is_raspberry_pi:
     try:
-        from gpiozero import Servo
+        from gpiozero import Servo, PWMLED, MCP3008
         from gpiozero.pins.rpigpio import RPiGPIOFactory
         from gpiozero.pins.lgpio import LGPIOFactory
         from gpiozero.pins.pigpio import PiGPIOFactory
@@ -94,6 +95,13 @@ MAX_DESIRED_VOL = 50
 # Values for servo control with gpiozero
 SERVO_MIN_VALUE = -1  # gpiozero servo minimum position value
 SERVO_MAX_VALUE = 1   # gpiozero servo maximum position value
+
+PULSEOX_PIN_LED = 17
+
+PULSEOX_SPI_DIN = 12
+PULSEOX_SPI_DOUT = 13
+PULSEOX_SPI_CLK = 14
+
 
 
 UPDATE_INTERVAL = 1000 #in ms
