@@ -124,7 +124,7 @@ function FlowRateCard() {
       <div className="flow-rate-simple">
         <div className="flow-rate-value">
           <span className="value">{flowRate}</span>
-          <span className="unit">mL/min</span>
+          <span className="unit">μL/min</span>
         </div>
         {socketConnected ? (
           <div className="flow-control-buttons">
