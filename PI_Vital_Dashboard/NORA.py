@@ -531,7 +531,7 @@ def create_gui():
     footer_frame.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(20, 0))
     
     footer_text = tk.Label(footer_frame, 
-                          text="NORA Vitals Monitor v2.0 | OSU Pulse Patrol",
+                          text="NORA Vitals Monitor v2.0",
                           fg=COLORS["text_secondary"], bg=COLORS["bg_main"],
                           font=FONTS["footer"])
     footer_text.pack(side=tk.RIGHT)

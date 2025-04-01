@@ -62,7 +62,7 @@ def data_endpoint():
         "bp_dia": DATA_STORE["bp_dia"],
         "flow_rate": FLOW_RATE,  # Include flow rate in response
     }), 200
-
+    
 @app.route("/data", methods=["GET"])
 def get_data():
     """

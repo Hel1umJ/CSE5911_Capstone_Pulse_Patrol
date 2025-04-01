@@ -70,7 +70,7 @@ const mockSocket = {
       expect(screen.getByText("4")).toBeInTheDocument();
       expect(mockSocket.emit).toHaveBeenCalledWith("update_flow_rate", { flow_rate: 4 });
     });
-  
+    
     test("flow rate does not exceed 30", async () => {
       axios.get.mockResolvedValue({ data: { flow_rate: 30 } });
       render(<FlowRateCard />);
