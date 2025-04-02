@@ -122,8 +122,13 @@ desired_vol_changed_locally = False  # Flag to track local changes
 socket_connected = False  # Flag to track socket connection status
 
 procedure_running = False  # Flag to track if procedure is running
-vol_given = 0.0 # Used to track the total volume dispensed
-survo_position = 1.0
+vol_given = 0.0 # Used to track the total volume that should have been dispensed
+survo_position = 1.0 
+actual_vol_given = 0 # Used to track the amount dispensed based on servo position
+step_size = 0.001 # 2000 total steps
+syringe_size = 50000 # 50000 microliters = 50 ml
+vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
+
 
 #Attempt to get Device's IP via socket trick; defaults to localhost
 import socket
@@ -310,7 +315,7 @@ def update_vitals(root):
   
     root.after(UPDATE_INTERVAL, update_vitals, root) #Update with sensor data every 1000ms
 
-def update_flow(flow_rate_value):
+def update_flow():
     """
     Updates the hardware with the current flow rate
     
@@ -326,38 +331,33 @@ def update_flow(flow_rate_value):
             # At MAX_FLOW_RATE, position is 1 (max position)
             # position = SERVO_MIN_VALUE + (flow_rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
             
-            # Set servo position
-            servo.value = survo_position
-            print(f"Setting servo position to: {survo_position:.2f} for flow rate: {flow_rate_value} μL/min")
+
+            if procedure_running:
+                # num_seconds_running += 1
+
+                while actual_vol_given < vol_given:
+
+                    servo_position -= step_size
+                    actual_vol_given = actual_vol_given + vol_per_step
+                    # MAX_SERVO_POS == 50 ml
+                    # MIN_SERVO_ POS == 0 ml
+
+                # Set servo position
+                servo.value = survo_position
+                print(f"Setting servo position to: {survo_position:.2f} for flow rate: {flow_rate} μL/min")
+
+            root.after(1000, update_volume_given) 
+
         except Exception as e:
             print(f"Error controlling servo: {e}")
             return False
     else:
         # Not running on Pi or servo not initialized
-        print(f"Servo flow rate set to {flow_rate_value} μL/min (simulation mode)")
+        print(f"Servo flow rate set to {flow_rate} μL/min (simulation mode)")
     
     return True
 
-def update_survo_position_value():
 
-    # num_seconds_running = 0
-    actual_vol_given = 0
-    step_size = 0.001 # 2000 total steps
-    syringe_size = 50000 # 50000 microliters = 50 ml
-    vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
-
-    if procedure_running:
-        # num_seconds_running += 1
-
-        while actual_vol_given < vol_given:
-
-            servo_position -= step_size
-            actual_vol_given = actual_vol_given + vol_per_step
-            # MAX_SERVO_POS == 50 ml
-            # MIN_SERVO_ POS == 0 ml
-
-
-    root.after(1000, update_volume_given) 
 
 def update_volume_given():
     """
@@ -674,7 +674,7 @@ def create_gui():
         update_flow_display()
         
         # Update the hardware
-        update_flow(flow_rate)
+        # update_flow(flow_rate)
         
         # Send to server via WebSocket
         try:
@@ -891,6 +891,7 @@ if __name__ == "__main__":
     # Start the vital signs update loop
     update_vitals(app)
     update_volume_given()
+    update_flow()
 
     try:
         # Start the main loop
