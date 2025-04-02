@@ -34,6 +34,13 @@ if is_raspberry_pi:
         except ImportError:
             print("pigpio not available")
             
+        # Try to import spidev for direct SPI access
+        try:
+            import spidev
+            print("spidev imported successfully")
+        except ImportError:
+            print("spidev not available")
+            
         print("Running on Raspberry Pi. gpiozero imported successfully.")
     except ImportError as e:
         print(f"Warning: GPIO import error: {e}")
@@ -43,10 +50,10 @@ else:
     print("Not running on Raspberry Pi. Analog reading will be simulated.")
 
 # MCP3008 Pin Configuration (same as NORA.py)
-PULSEOX_SPI_DIN = 12   # Data in
-PULSEOX_SPI_DOUT = 13  # Data out
+PULSEOX_SPI_DIN = 12   # Data in (MOSI)
+PULSEOX_SPI_DOUT = 13  # Data out (MISO)
 PULSEOX_SPI_CLK = 14   # Clock
-PULSEOX_SPI_CS = 10    # Data channel select pin
+PULSEOX_SPI_CS = 10    # Data channel select pin (CS/SHDN)
 
 # Function to initialize MCP3008 with different GPIO backends
 def initialize_mcp3008(channel=0):
@@ -126,6 +133,90 @@ def read_analog(adc):
     
     return value, voltage
 
+# Direct SPI implementation to bypass gpiozero
+def read_mcp3008_direct(channel=0):
+    """
+    Read directly from MCP3008 using spidev
+    
+    Args:
+        channel: The MCP3008 channel to read from (0-7)
+        
+    Returns:
+        value: A float between 0 and 1 representing the reading
+        raw_value: The raw integer value (0-1023)
+    """
+    if not is_raspberry_pi:
+        import random
+        raw_value = int(random.random() * 1023)
+        return raw_value / 1023.0, raw_value
+        
+    try:
+        import spidev
+        spi = spidev.SpiDev()
+        spi.open(0, 0)  # Open SPI bus 0, device 0
+        spi.max_speed_hz = 1000000  # 1MHz
+        
+        # MCP3008 expects:
+        # First byte: Start bit (1) followed by single/diff bit (1 for single) and part of channel
+        # Second byte: Rest of channel bits followed by don't care bits
+        cmd = [0x01, (0x08 + channel) << 4, 0x00]
+        resp = spi.xfer2(cmd)
+        
+        # The returned data will be in the second and third bytes
+        # Use the lower 2 bits from the second byte and all 8 bits from the third byte
+        raw_value = ((resp[1] & 0x03) << 8) + resp[2]
+        normalized_value = raw_value / 1023.0
+        
+        spi.close()
+        return normalized_value, raw_value
+    except Exception as e:
+        print(f"Error in direct SPI reading: {e}")
+        return 0, 0
+
+# Debugging function for MCP3008
+def debug_mcp3008(adc, channel=0):
+    """
+    Print debug information about the MCP3008 connection
+    """
+    print("\nDEBUG INFORMATION:")
+    print(f"Raspberry Pi Detected: {is_raspberry_pi}")
+    print(f"SPI Pins Configured: CLK={PULSEOX_SPI_CLK}, MOSI={PULSEOX_SPI_DIN}, MISO={PULSEOX_SPI_DOUT}, CS={PULSEOX_SPI_CS}")
+    
+    if adc is None:
+        print("DEBUG: No MCP3008 object available (initialization failed or simulation mode)")
+    else:
+        print(f"ADC Object Type: {type(adc)}")
+        print(f"ADC Channel: {adc.channel}")
+        print(f"ADC Pin Factory: {adc.pin_factory}")
+    
+    # Check for SPI interface
+    if is_raspberry_pi:
+        import os
+        if os.path.exists("/dev/spidev0.0"):
+            print("\nSPI Device: /dev/spidev0.0 exists")
+        else:
+            print("\nWARNING: /dev/spidev0.0 does not exist!")
+            print("SPI may not be enabled. Run 'sudo raspi-config' and enable SPI interface")
+    
+    # Try direct SPI method
+    print("\nTesting direct SPI access:")
+    try:
+        value, raw = read_mcp3008_direct(channel)
+        print(f"Direct SPI read successful from channel {channel}")
+        print(f"Raw value: {raw} (0-1023)")
+        print(f"Normalized value: {value:.4f}")
+        print(f"Voltage estimate: {value * 3.3:.2f}V")
+    except Exception as e:
+        print(f"Direct SPI access failed: {e}")
+    
+    print("\nPossible issue causes if readings are 0:")
+    print("1. Incorrect wiring - double check all connections")
+    print("2. MCP3008 not powered correctly - verify VDD and VREF connections")
+    print("3. SPI not enabled - run 'sudo raspi-config' and enable SPI")
+    print("4. Sensor not providing a signal to channel 0")
+    print("5. Pin configuration in code doesn't match hardware connections")
+    print("6. Channel selection is incorrect - ensure sensor is on channel 0")
+
 # Main program to continuously read from MCP3008
 if __name__ == "__main__":
     print("MCP3008 A2D Converter Test Program")
@@ -137,22 +228,29 @@ if __name__ == "__main__":
     adc = initialize_mcp3008(channel=0)
     
     if adc is None:
-        print("Could not initialize MCP3008, running in simulation mode")
+        print("Could not initialize MCP3008 through gpiozero, will try direct SPI")
+    
+    # Run the debug function first
+    debug_mcp3008(adc)
     
     try:
-        print("\nReading analog values (Press CTRL+C to exit)")
-        print("Raw Value | Voltage")
-        print("-----------------")
+        print("\nStarting continuous reading (Press CTRL+C to exit)")
+        print("Method   | Raw Value  | Voltage")
+        print("------------------------------")
         
         while True:
-            # Read value
-            raw_value, voltage = read_analog(adc)
+            # Try both methods
+            gpiozero_value, gpiozero_voltage = read_analog(adc)
+            direct_value, direct_raw = read_mcp3008_direct(0)
+            direct_voltage = direct_value * 3.3
             
             # Display the readings
-            print(f"{raw_value:.4f}   | {voltage:.2f}V")
+            print(f"GPIOZero | {gpiozero_value:.4f} | {gpiozero_voltage:.2f}V")
+            print(f"Direct   | {direct_value:.4f} ({direct_raw}) | {direct_voltage:.2f}V")
+            print("-" * 30)
             
             # Wait before taking another reading
-            time.sleep(0.5)
+            time.sleep(1)
             
     except KeyboardInterrupt:
         print("\nExiting program")
