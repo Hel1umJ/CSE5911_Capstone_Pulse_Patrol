@@ -123,7 +123,7 @@ socket_connected = False  # Flag to track socket connection status
 
 procedure_running = False  # Flag to track if procedure is running
 vol_given = 0.0 # Used to track the total volume that should have been dispensed
-survo_position = 1.0 
+servo_position = 1.0 
 actual_vol_given = 0 # Used to track the amount dispensed based on servo position
 step_size = 0.001 # 2000 total steps
 syringe_size = 50000 # 50000 microliters = 50 ml
@@ -335,18 +335,18 @@ def update_flow():
             if procedure_running:
                 # num_seconds_running += 1
 
-                while actual_vol_given < vol_given:
+                if actual_vol_given < vol_given:
 
                     servo_position -= step_size
                     actual_vol_given = actual_vol_given + vol_per_step
                     # MAX_SERVO_POS == 50 ml
                     # MIN_SERVO_ POS == 0 ml
 
-                # Set servo position
-                servo.value = survo_position
-                print(f"Setting servo position to: {survo_position:.2f} for flow rate: {flow_rate} μL/min")
+                    # Set servo position
+                    servo.value = servo_position
+                print(f"Setting servo position to: {servo_position:.2f} for flow rate: {flow_rate} μL/min")
 
-            root.after(1000, update_flow()) 
+            root.after(100, update_flow) 
 
         except Exception as e:
             print(f"Error controlling servo: {e}")
@@ -704,7 +704,7 @@ def create_gui():
         update_flow_display()
         
         # Update the hardware
-        update_flow(flow_rate)
+        # update_flow(flow_rate)
         
         # Send to server via WebSocket
         try:
