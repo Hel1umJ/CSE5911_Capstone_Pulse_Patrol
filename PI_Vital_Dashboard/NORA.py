@@ -123,11 +123,8 @@ socket_connected = False  # Flag to track socket connection status
 
 procedure_running = False  # Flag to track if procedure is running
 vol_given = 0.0 # Used to track the total volume that should have been dispensed
-servo_position = 1.0 
 actual_vol_given = 0 # Used to track the amount dispensed based on servo position
-step_size = 0.001 # 2000 total steps
-syringe_size = 50000 # 50000 microliters = 50 ml
-vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
+
 
 
 #Attempt to get Device's IP via socket trick; defaults to localhost
@@ -196,7 +193,7 @@ def on_flow_rate_update(data):
         print(f"Flow rate updated from server: {flow_rate}")
         
         # Update hardware
-        update_flow(flow_rate)
+        # update_flow(flow_rate)
         
         # Update display (need to use Tkinter's after method to safely update UI from another thread)
         if flow_value_label and 'root' in globals():
@@ -322,16 +319,24 @@ def update_flow():
     Maps the flow rate (0-30) to servo position (-1 to 1 in gpiozero)
     """
     global servo
-    
+    global actual_vol_given
+    global vol_given
+    global SERVO_MAX_VALUE
+    servo_position = SERVO_MAX_VALUE
+    step_size = 0.1 # 2000 total steps
+    syringe_size = 50 # 50000 microliters = 50 ml
+    vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
+
+    # ADD GLOBAL VARIABLES AHHHHHHH!!!!
+
     # Map flow rate from (0-30) to servo position range (-1 to 1)
     if is_raspberry_pi and servo is not None:
         try:
             # Map from flow_rate (0-30) to servo position (-1 to 1)
             # At 0 flow rate, position is -1 (min position)
             # At MAX_FLOW_RATE, position is 1 (max position)
-            # position = SERVO_MIN_VALUE + (flow_rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
+            # position = SERVO_MIN_VALUE + (flow_-rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
             
-
             if procedure_running:
                 # num_seconds_running += 1
 
@@ -344,9 +349,9 @@ def update_flow():
 
                     # Set servo position
                     servo.value = servo_position
-                print(f"Setting servo position to: {servo_position:.2f} for flow rate: {flow_rate} μL/min")
+                # print(f"Setting servo position to: {servo_position:.2f} for flow rate: {flow_rate} μL/min")
 
-            root.after(100, update_flow) 
+            root.after(1000, update_flow) 
 
         except Exception as e:
             print(f"Error controlling servo: {e}")
@@ -574,8 +579,8 @@ def create_gui():
             
         # Increase by 1 to match the React frontend
         desired_vol += 1
-        if desired_vol > 30:
-            desired_vol = 30
+        if desired_vol > 50:
+            desired_vol = 50
         
         # Set flag to ignore echo from server
         desired_vol_changed_locally = True
