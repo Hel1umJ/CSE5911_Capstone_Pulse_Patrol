@@ -123,6 +123,7 @@ socket_connected = False  # Flag to track socket connection status
 
 procedure_running = False  # Flag to track if procedure is running
 vol_given = 0.0 # Used to track the total volume dispensed
+survo_position = 1.0
 
 #Attempt to get Device's IP via socket trick; defaults to localhost
 import socket
@@ -323,11 +324,11 @@ def update_flow(flow_rate_value):
             # Map from flow_rate (0-30) to servo position (-1 to 1)
             # At 0 flow rate, position is -1 (min position)
             # At MAX_FLOW_RATE, position is 1 (max position)
-            position = SERVO_MIN_VALUE + (flow_rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
+            # position = SERVO_MIN_VALUE + (flow_rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
             
             # Set servo position
-            servo.value = position
-            print(f"Setting servo position to: {position:.2f} for flow rate: {flow_rate_value} μL/min")
+            servo.value = survo_position
+            print(f"Setting servo position to: {survo_position:.2f} for flow rate: {flow_rate_value} μL/min")
         except Exception as e:
             print(f"Error controlling servo: {e}")
             return False
@@ -336,6 +337,27 @@ def update_flow(flow_rate_value):
         print(f"Servo flow rate set to {flow_rate_value} μL/min (simulation mode)")
     
     return True
+
+def update_survo_position_value():
+
+    # num_seconds_running = 0
+    actual_vol_given = 0
+    step_size = 0.001 # 2000 total steps
+    syringe_size = 50000 # 50000 microliters = 50 ml
+    vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
+
+    if procedure_running:
+        # num_seconds_running += 1
+
+        while actual_vol_given < vol_given:
+
+            servo_position -= step_size
+            actual_vol_given = actual_vol_given + vol_per_step
+            # MAX_SERVO_POS == 50 ml
+            # MIN_SERVO_ POS == 0 ml
+
+
+    root.after(1000, update_volume_given) 
 
 def update_volume_given():
     """
@@ -819,7 +841,7 @@ def initialize_servo():
                 )
                 
                 # Set initial position to minimum (corresponds to 0 flow rate)
-                servo.value = SERVO_MIN_VALUE
+                servo.value = SERVO_MAX_VALUE
                 print(f"Servo initialized successfully on GPIO pin {SERVO_PIN} using {factory_name}")
                 return True
             except Exception as e:
