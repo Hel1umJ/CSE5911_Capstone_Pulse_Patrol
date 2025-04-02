@@ -47,10 +47,17 @@ else
 fi
 
 
-if ["IS_RASPBERRY_PI" = true]; then
-  #Enable SPI comm on RPI:
-  echo "Enabling SPI comm. on RPI..."
+if [ "$IS_RASPBERRY_PI" = true ]; then
+  # Enable SPI communication on RPI:
+  echo "Enabling SPI communication on RPI..."
   sudo raspi-config nonint do_spi 0 
+  
+  # Check if SPI is enabled correctly
+  if [ -e /dev/spidev0.0 ] || [ -e /dev/spidev0.1 ]; then
+    echo "SPI interface is enabled and ready"
+  else
+    echo "WARNING: SPI interface not detected. Please reboot and try again."
+  fi
 fi
 
 # Check GPIO access 
