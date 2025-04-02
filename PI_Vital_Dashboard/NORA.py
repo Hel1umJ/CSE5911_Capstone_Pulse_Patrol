@@ -346,7 +346,7 @@ def update_flow():
                 servo.value = survo_position
                 print(f"Setting servo position to: {survo_position:.2f} for flow rate: {flow_rate} μL/min")
 
-            root.after(1000, update_volume_given) 
+            root.after(1000, update_flow()) 
 
         except Exception as e:
             print(f"Error controlling servo: {e}")
