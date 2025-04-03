@@ -322,12 +322,11 @@ def update_flow():
     global actual_vol_given
     global vol_given
     global SERVO_MAX_VALUE
-    servo_position = SERVO_MAX_VALUE
-    step_size = 0.1 # 2000 total steps
-    syringe_size = 50 # 50000 microliters = 50 ml
+    # servo_position = SERVO_MAX_VALUE
+    step_size = 0.01 # 2000 total steps
+    syringe_size = 50000 # 50000 microliters = 50 ml
     vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
 
-    # ADD GLOBAL VARIABLES AHHHHHHH!!!!
 
     # Map flow rate from (0-30) to servo position range (-1 to 1)
     if is_raspberry_pi and servo is not None:
@@ -342,13 +341,10 @@ def update_flow():
 
                 if actual_vol_given < vol_given:
 
-                    servo_position -= step_size
+                    servo.value = servo.value - step_size
                     actual_vol_given = actual_vol_given + vol_per_step
-                    # MAX_SERVO_POS == 50 ml
-                    # MIN_SERVO_ POS == 0 ml
 
-                    # Set servo position
-                    servo.value = servo_position
+
                 # print(f"Setting servo position to: {servo_position:.2f} for flow rate: {flow_rate} μL/min")
 
             root.after(1000, update_flow) 
