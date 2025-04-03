@@ -50,10 +50,10 @@ else:
     print("Not running on Raspberry Pi. Analog reading will be simulated.")
 
 # MCP3008 Pin Configuration (same as NORA.py)
-PULSEOX_SPI_MOSI = 12   # Data in (MOSI)
-PULSEOX_SPI_MISO = 13  # Data out (MISO)
-PULSEOX_SPI_SCLK = 14   # Clock
-PULSEOX_SPI_CE0 = 10    # Data channel select pin (CS/SHDN)
+PULSEOX_SPI_MOSI = 10   # Data in (MOSI)
+PULSEOX_SPI_MISO = 9  # Data out (MISO)
+PULSEOX_SPI_SCLK = 11   # Clock
+PULSEOX_SPI_CE0 = 8    # Data channel select pin (CS/SHDN)
 
 # Function to initialize MCP3008 with different GPIO backends
 def initialize_mcp3008(channel=0):

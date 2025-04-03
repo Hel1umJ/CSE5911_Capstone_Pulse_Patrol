@@ -98,10 +98,10 @@ SERVO_MAX_VALUE = 1   # gpiozero servo maximum position value
 
 PULSEOX_PIN_LED = 17
 
-PULSEOX_SPI_DIN = 12
-PULSEOX_SPI_DOUT = 13
-PULSEOX_SPI_CLK = 14
-PULSEOX_SPI_CS = 14   # Data channel select pin
+PULSEOX_SPI_MOSI = 10
+PULSEOX_SPI_MISO = 9
+PULSEOX_SPI_SCLK = 11
+PULSEOX_SPI_CE0 = 8   # Data channel select pin
 
 
 UPDATE_INTERVAL = 1000 #in ms
