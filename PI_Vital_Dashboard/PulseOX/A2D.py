@@ -50,10 +50,10 @@ else:
     print("Not running on Raspberry Pi. Analog reading will be simulated.")
 
 # MCP3008 Pin Configuration (same as NORA.py)
-PULSEOX_SPI_DIN = 12   # Data in (MOSI)
-PULSEOX_SPI_DOUT = 13  # Data out (MISO)
-PULSEOX_SPI_CLK = 14   # Clock
-PULSEOX_SPI_CS = 10    # Data channel select pin (CS/SHDN)
+PULSEOX_SPI_MOSI = 12   # Data in (MOSI)
+PULSEOX_SPI_MISO = 13  # Data out (MISO)
+PULSEOX_SPI_SCLK = 14   # Clock
+PULSEOX_SPI_CE0 = 10    # Data channel select pin (CS/SHDN)
 
 # Function to initialize MCP3008 with different GPIO backends
 def initialize_mcp3008(channel=0):
@@ -86,14 +86,14 @@ def initialize_mcp3008(channel=0):
             # Initialize MCP3008 with explicit pin factory and pin configuration
             adc = MCP3008(
                 channel=channel,
-                clock_pin=PULSEOX_SPI_CLK,
-                mosi_pin=PULSEOX_SPI_DIN,
-                miso_pin=PULSEOX_SPI_DOUT,
-                select_pin=PULSEOX_SPI_CS,
+                clock_pin=PULSEOX_SPI_SCLK,
+                mosi_pin=PULSEOX_SPI_MOSI,
+                miso_pin=PULSEOX_SPI_MISO,
+                select_pin=PULSEOX_SPI_CE0,
                 pin_factory=pin_factory
             )
             print(f"MCP3008 initialized successfully on channel {channel} using {factory_name}")
-            print(f"Using pins: CLK={PULSEOX_SPI_CLK}, MOSI={PULSEOX_SPI_DIN}, MISO={PULSEOX_SPI_DOUT}, CS={PULSEOX_SPI_CS}")
+            print(f"Using pins: CLK={PULSEOX_SPI_SCLK}, MOSI={PULSEOX_SPI_MOSI}, MISO={PULSEOX_SPI_MISO}, CS={PULSEOX_SPI_CE0}")
             return adc
         except Exception as e:
             print(f"Failed to initialize MCP3008 with {factory_name}: {e}")
@@ -180,7 +180,7 @@ def debug_mcp3008(adc, channel=0):
     """
     print("\nDEBUG INFORMATION:")
     print(f"Raspberry Pi Detected: {is_raspberry_pi}")
-    print(f"SPI Pins Configured: CLK={PULSEOX_SPI_CLK}, MOSI={PULSEOX_SPI_DIN}, MISO={PULSEOX_SPI_DOUT}, CS={PULSEOX_SPI_CS}")
+    print(f"SPI Pins Configured: CLK={PULSEOX_SPI_SCLK}, MOSI={PULSEOX_SPI_MOSI}, MISO={PULSEOX_SPI_MISO}, CS={PULSEOX_SPI_CE0}")
     
     if adc is None:
         print("DEBUG: No MCP3008 object available (initialization failed or simulation mode)")
@@ -221,7 +221,7 @@ def debug_mcp3008(adc, channel=0):
 if __name__ == "__main__":
     print("MCP3008 A2D Converter Test Program")
     print("----------------------------------")
-    print(f"Using Channel Select Pin: {PULSEOX_SPI_CS}")
+    print(f"Using Channel Select Pin: {PULSEOX_SPI_CE0}")
     print(f"Reading from MCP3008 Channel 0")
     
     # Initialize MCP3008 on channel 0
