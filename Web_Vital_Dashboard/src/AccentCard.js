@@ -3,6 +3,8 @@ import { faker } from "@faker-js/faker";
 import "./AccentCard.css";
 import SmallSensorCard from "./SmallSensorCard";
 import ThemeToggle from "./ThemeToggle";
+import BloodPressureCard from "./BloodPressureCard";
+
 
 
 function AccentCard() {
@@ -45,6 +47,9 @@ function AccentCard() {
             path={"/sp02_val"}
             unit={"%"}
           />
+        </div>
+        <div className="accent-row">
+            <BloodPressureCard />
         </div>
       </div>
     </div>

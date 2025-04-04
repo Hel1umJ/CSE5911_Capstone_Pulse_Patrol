@@ -1,19 +1,28 @@
 .card {
-  background-color: #FFFFFF;
+  background-color: var(--bgAccent2);
+
   border-radius: 8px;
-  padding: 20px;
+  padding: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
-  width: 100%;
 }
 
 .card h1 {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 2px;
   color: var(--text, #2C3E50);
   font-size: 1.5rem;
   text-align: center;
 }
+
+.flow-card {
+  display: flex;
+}
+
+.control {
+  flex: 50%;
+}
+
 
 /* Shared styles for flow rate and volume controls */
 .flow-rate-simple {
@@ -24,12 +33,12 @@
 }
 
 .flow-rate-value {
-  margin-bottom: 20px;
+  margin-bottom: 2px;
   text-align: center;
 }
 
 .flow-rate-value .value {
-  font-size: 3.5rem;
+  font-size: 3rem;
   font-weight: bold;
   color: var(--text, #2C3E50);
 }
@@ -106,8 +115,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 15px;
-  padding: 10px 0;
+  gap: 10px;
+  padding: 2px 0;
 }
 
 .status-indicator {

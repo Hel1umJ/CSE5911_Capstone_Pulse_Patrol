@@ -128,7 +128,7 @@ function FlowRateCard() {
   };
 
   return (
-    <div className="card col">
+    <div className="card col control">
       <h1>Flow Rate Control</h1>
       <div className="flow-rate-simple">
         <div className="flow-rate-value">

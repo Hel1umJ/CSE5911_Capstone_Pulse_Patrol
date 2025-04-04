@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import "./FlowRateCard.css";
 
+
+// CURRENTLY NOT BEING USED
+// CODE TRANSFERED TO FLOWRATECONTROLSCARD.JS
+// KEEPING IN CASE FUNCTIONALITY IS BROKEN
+
 function ProcedureControlCard() {
   const [procedureRunning, setProcedureRunning] = useState(false);
   const [volumeGiven, setVolumeGiven] = useState(0);

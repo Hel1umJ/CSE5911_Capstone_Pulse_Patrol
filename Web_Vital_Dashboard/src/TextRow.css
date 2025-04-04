@@ -2,7 +2,7 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    margin-top: 20px;
+    margin-top: 10px;
 }
 
 .small-sensor-value {
