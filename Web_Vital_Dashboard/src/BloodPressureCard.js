@@ -39,8 +39,8 @@ function BloodPressureCard() {
   }
 
   return (
-    <div className="card col">
-      <h1>Blood Pressure</h1>
+    <div className="col blood-pres">
+      <h3>Blood Pressure</h3>
       <div className="val-col">
         <TextRow
           title={displayValue("SYS")}

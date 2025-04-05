@@ -1,67 +1,45 @@
 .app {
-    background-color: var(--bg);
-    height: 100vh;
-    width: 100vw;
-    padding: 14px 48px 48px 48px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    padding-top: 0px !important;
-    overflow: hidden;
-}
-
-.grid {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 48px;
-}
-
-.row {
-    /* flex: 1 1 calc(33.333% - 32px);
-    height: fit-content;
-    width: 100%;
-    overflow-y: auto;
-    gap: 48px;
-    padding-top: 5px;; */
-    padding-top: 20px;
-    flex: 1; /* Each container takes equal space */
-    display: flex;
-    flex-direction: column;
-    min-height: 0; /* Allow container to shrink */
-    overflow-y: auto; /* Prevent scroll bars */
-    
-}
-
-.ecg {
-    flex: 1;
-}
-
-.col {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.card, .lg-accent-card {
-    border-radius: 24px;
-    padding: 10px 36px;
-}
-
-.card {
+    max-width: 1700px;
+    margin: 0 auto;
+    padding: 10px 20px;
+  }
+  
+  .row {
+    margin-bottom: 20px;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: var(--bgAccent1);
+  }
+  
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .blood-pres {
+    padding: 10px;
     background-color: var(--bgAccent2);
-    flex: 1;
-}
-
-.card.lg {
-    flex: 2;
-}
-@media (max-width: 768px) {
-    .app {
-        padding: 14px 24px 24px 24px; /* Reduce padding on smaller screens */
+    width: 100%;
+    border-radius: 18px;
+  }
+  
+  @media (max-width: 768px) {
+    .controls-grid {
+      grid-template-columns: 1fr;
     }
-
-    .container.middle {
-        flex: 1; /* Make the middle container equal size on smaller screens */
-    }
-}
+  }
+  
+  .ecg h1 {
+    margin-bottom: 15px;
+    color: #b10000;
+  }
+  
+  .accent-col {
+    display: flex;
+    gap: 15px;
+  }
+  
+  .accent-row {
+    width: 100%;
+  }

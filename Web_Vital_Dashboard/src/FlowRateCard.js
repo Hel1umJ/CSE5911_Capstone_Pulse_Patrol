@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useRef } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import "./FlowRateCard.css";
 
 function FlowRateCard() {
   const [flowRate, setFlowRate] = useState(0);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [procedureRunning, setProcedureRunning] = useState(false);
   const socketRef = useRef(null);
   const localChangeRef = useRef(false);
   
@@ -52,15 +52,24 @@ function FlowRateCard() {
       }
     });
     
+    // Handler for procedure state updates
+    socket.on("procedure_state_update", (data) => {
+      console.log("Received procedure state update:", data);
+      setProcedureRunning(data.running);
+    });
+    
     // Initial data fetch to get current flow rate
     const fetchInitialData = async () => {
       try {
-        const response = await axios.get("/data");
-        if (response.data && response.data.flow_rate !== undefined) {
-          setFlowRate(response.data.flow_rate);
+        const response = await fetch("/data");
+        const data = await response.json();
+        
+        if (data) {
+          setFlowRate(data.flow_rate || 0);
+          setProcedureRunning(data.procedure_running || false);
         }
       } catch (error) {
-        console.error("Error fetching initial flow rate:", error);
+        console.error("Error fetching initial data:", error);
       }
     };
     
@@ -119,7 +128,7 @@ function FlowRateCard() {
   };
 
   return (
-    <div className="card col">
+    <div className="card col control">
       <h1>Flow Rate Control</h1>
       <div className="flow-rate-simple">
         <div className="flow-rate-value">
@@ -128,12 +137,25 @@ function FlowRateCard() {
         </div>
         {socketConnected ? (
           <div className="flow-control-buttons">
-            <button className="flow-button" onClick={decreaseFlowRate}>−</button>
-            <button className="flow-button" onClick={increaseFlowRate}>+</button>
+            <button 
+              className="flow-button" 
+              onClick={decreaseFlowRate}
+              disabled={procedureRunning}  // Disable during procedure
+            >−</button>
+            <button 
+              className="flow-button" 
+              onClick={increaseFlowRate}
+              disabled={procedureRunning}  // Disable during procedure
+            >+</button>
           </div>
         ) : (
           <div className="connection-error">
             Connecting to server...
+          </div>
+        )}
+        {procedureRunning && (
+          <div className="procedure-active-warning">
+            Flow rate cannot be changed while procedure is running
           </div>
         )}
       </div>

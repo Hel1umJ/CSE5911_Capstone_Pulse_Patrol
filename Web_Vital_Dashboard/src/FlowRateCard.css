@@ -1,21 +1,30 @@
 .card {
-  background-color: #FFFFFF;
+  background-color: var(--bgAccent2);
+
   border-radius: 8px;
-  padding: 20px;
+  padding: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
-  width: 100%;
 }
 
 .card h1 {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 2px;
   color: var(--text, #2C3E50);
   font-size: 1.5rem;
   text-align: center;
 }
 
-/* New simplified flow rate control styles */
+.flow-card {
+  display: flex;
+}
+
+.control {
+  flex: 50%;
+}
+
+
+/* Shared styles for flow rate and volume controls */
 .flow-rate-simple {
   display: flex;
   flex-direction: column;
@@ -24,12 +33,12 @@
 }
 
 .flow-rate-value {
-  margin-bottom: 20px;
+  margin-bottom: 2px;
   text-align: center;
 }
 
 .flow-rate-value .value {
-  font-size: 3.5rem;
+  font-size: 3rem;
   font-weight: bold;
   color: var(--text, #2C3E50);
 }
@@ -61,13 +70,126 @@
   transition: background-color 0.2s;
 }
 
-.flow-button:hover {
+.flow-button:hover:not(:disabled) {
   background-color: #333333;
+}
+
+.flow-button:disabled {
+  background-color: #999999;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Connection status message */
+.connection-error {
+  color: #F05454;
+  font-weight: bold;
+  text-align: center;
+  padding: 10px;
+  margin-top: 10px;
+  border: 1px dashed #F05454;
+  border-radius: 4px;
+  background-color: rgba(240, 84, 84, 0.1);
+}
+
+/* Procedure warning */
+.procedure-active-warning {
+  color: #FFA726;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 10px;
+  margin-top: 10px;
+  border: 1px dashed #FFA726;
+  border-radius: 4px;
+  background-color: rgba(255, 167, 38, 0.1);
+}
+
+/* Procedure Control Styles */
+.procedure-control-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.procedure-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.status-indicator {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.status-running {
+  color: #4CAF50;
+}
+
+.status-stopped {
+  color: #F05454;
+}
+
+.volume-progress {
+  width: 100%;
+  padding: 0 10px;
+}
+
+.volume-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+}
+
+.progress-bar-container {
+  height: 20px;
+  width: 100%;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #3F72AF;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.procedure-button {
+  padding: 15px 30px;
+  border: none;
+  border-radius: 5px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.2s;
+}
+
+.procedure-button.start {
+  background-color: #3F72AF;
+}
+
+.procedure-button.start:hover {
+  background-color: #5E94E4;
+}
+
+.procedure-button.stop {
+  background-color: #F05454;
+}
+
+.procedure-button.stop:hover {
+  background-color: #ff6b6b;
 }
 
 /* Dark mode support */
 body.dark-mode .card {
-  background-color: #181818;
+  background-color: #2C3E50;
 }
 
 body.dark-mode .flow-rate-value .value {
@@ -87,17 +209,26 @@ body.dark-mode .flow-button {
   color: #FFFFFF;
 }
 
-body.dark-mode .flow-button:hover {
+body.dark-mode .flow-button:hover:not(:disabled) {
   background-color: #333333;
 }
 
-.connection-error {
-    color: #F05454;
-    font-weight: bold;
-    text-align: center;
-    padding: 10px;
-    margin-top: 10px;
-    border: 1px dashed #F05454;
-    border-radius: 4px;
-    background-color: rgba(240, 84, 84, 0.1);
-  }
+body.dark-mode .progress-bar-container {
+  background-color: #4A4A4A;
+}
+
+body.dark-mode .procedure-button.start {
+  background-color: #5E94E4;
+}
+
+body.dark-mode .procedure-button.start:hover {
+  background-color: #7FB0FF;
+}
+
+body.dark-mode .procedure-button.stop {
+  background-color: #ff6b6b;
+}
+
+body.dark-mode .procedure-button.stop:hover {
+  background-color: #ff8c8c;
+}

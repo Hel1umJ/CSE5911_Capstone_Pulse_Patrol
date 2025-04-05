@@ -2,6 +2,7 @@ import React from "react";
 import ThemeToggle from "./ThemeToggle";
 import GraphWrapper from "./GraphWrapper";
 import AccentCard from "./AccentCard";
+import FlowRateControlsCard from "./FlowRateControlsCard";
 
 import "./App.css";
 
@@ -11,8 +12,7 @@ import {
   faTemperatureHalf,
   faPercent,
 } from "@fortawesome/free-solid-svg-icons";
-import FlowRateCard from "./FlowRateCard";
-import BloodPressureCard from "./BloodPressureCard";
+
 
 library.add(faHeartPulse, faTemperatureHalf, faPercent);
 
@@ -22,20 +22,19 @@ function App() {
       <div className="row">
         <AccentCard />
       </div>
+
       <div className="row ecg">
         <h1>Heart Rate Monitoring</h1>
         <GraphWrapper />
       </div>
-      <div className="row lg-accent-card">
-        <div className="accent-col">
-          <div className="accent-row">
-            <BloodPressureCard />
-          </div>
-          <div className="accent-row">
-            <FlowRateCard />
-          </div>
-        </div> 
+
+      <div className="row controls">
+          <FlowRateControlsCard />
       </div>
+      
+      
+      
+      
     </div>
   );
 }

@@ -122,7 +122,10 @@ desired_vol_changed_locally = False  # Flag to track local changes
 socket_connected = False  # Flag to track socket connection status
 
 procedure_running = False  # Flag to track if procedure is running
-vol_given = 0.0 # Used to track the total volume dispensed
+vol_given = 0.0 # Used to track the total volume that should have been dispensed
+actual_vol_given = 0 # Used to track the amount dispensed based on servo position
+
+
 
 #Attempt to get Device's IP via socket trick; defaults to localhost
 import socket
@@ -190,11 +193,37 @@ def on_flow_rate_update(data):
         print(f"Flow rate updated from server: {flow_rate}")
         
         # Update hardware
-        update_flow(flow_rate)
+        # update_flow(flow_rate)
         
         # Update display (need to use Tkinter's after method to safely update UI from another thread)
         if flow_value_label and 'root' in globals():
             root.after(0, lambda: flow_value_label.config(text=f"{flow_rate}"))
+
+@sio.on("procedure_state_update")
+def on_procedure_state_update(data):
+    """Handle procedure state updates from server"""
+    global procedure_running, vol_given
+    
+    # Update procedure state
+    new_state = bool(data.get("running", procedure_running))
+    
+    # Only update if state is different
+    if new_state != procedure_running:
+        procedure_running = new_state
+        print(f"Procedure state updated from server: {'Running' if procedure_running else 'Stopped'}")
+        
+        # If starting procedure, reset volume given
+        if procedure_running:
+            vol_given = 0.0
+        
+        # Update UI (need to use Tkinter's after method to safely update UI from another thread)
+        if 'procedure_status_label' in globals() and 'start_stop_btn' in globals() and 'root' in globals():
+            if procedure_running:
+                root.after(0, lambda: procedure_status_label.config(text="Status: Running", fg=COLORS["success"]))
+                root.after(0, lambda: start_stop_btn.config(text="Stop Procedure", bg=COLORS["danger"]))
+            else:
+                root.after(0, lambda: procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"]))
+                root.after(0, lambda: start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"]))
 
 def try_reconnect():
     """Try to reconnect to the WebSocket server"""
@@ -309,57 +338,90 @@ def update_vitals(root):
   
     root.after(UPDATE_INTERVAL, update_vitals, root) #Update with sensor data every 1000ms
 
-def update_flow(flow_rate_value):
+def update_flow():
     """
     Updates the hardware with the current flow rate
     
     Maps the flow rate (0-30) to servo position (-1 to 1 in gpiozero)
     """
     global servo
-    
+    global actual_vol_given
+    global vol_given
+    global SERVO_MAX_VALUE
+    # servo_position = SERVO_MAX_VALUE
+    step_size = 0.01 # 2000 total steps
+    syringe_size = 50000 # 50000 microliters = 50 ml
+    vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
+
+
     # Map flow rate from (0-30) to servo position range (-1 to 1)
     if is_raspberry_pi and servo is not None:
         try:
             # Map from flow_rate (0-30) to servo position (-1 to 1)
             # At 0 flow rate, position is -1 (min position)
             # At MAX_FLOW_RATE, position is 1 (max position)
-            position = SERVO_MIN_VALUE + (flow_rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
+            # position = SERVO_MIN_VALUE + (flow_-rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
             
-            # Set servo position
-            servo.value = position
-            print(f"Setting servo position to: {position:.2f} for flow rate: {flow_rate_value} μL/min")
+            if procedure_running:
+                # num_seconds_running += 1
+
+                if actual_vol_given < vol_given:
+
+                    servo.value = servo.value - step_size
+                    actual_vol_given = actual_vol_given + vol_per_step
+
+
+                # print(f"Setting servo position to: {servo_position:.2f} for flow rate: {flow_rate} μL/min")
+
+            root.after(1000, update_flow) 
+
         except Exception as e:
             print(f"Error controlling servo: {e}")
             return False
     else:
         # Not running on Pi or servo not initialized
-        print(f"Servo flow rate set to {flow_rate_value} μL/min (simulation mode)")
+        print(f"Servo flow rate set to {flow_rate} μL/min (simulation mode)")
     
     return True
+
+
 
 def update_volume_given():
     """
     Updates the anesthesia given based on flow rate and time.
     """
-
     global vol_given
     global procedure_running
 
     if procedure_running:   
        vol_given = vol_given + (flow_rate / 60.0)
 
-    # vol_given_label.config(text=f"Volume Given: {vol_given: .2f} μL")
+    # Update UI elements
+    progress_bar["maximum"] = desired_vol
+    progress_bar["value"] = vol_given
+    vol_given_label.config(text=f"Volume Given: {vol_given: .2f} / {desired_vol} μL")
+    
+    # Send the updated volume given to the server via WebSocket
+    try:
+        if sio.connected:
+            sio.emit("update_vol_given", {"vol_given": vol_given})
+    except Exception as e:
+        print(f"Error sending volume given update: {e}")
 
+    # Check if we've reached target volume
     if procedure_running and vol_given >= desired_vol:
         procedure_running = False
         procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
         start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
+        
+        # Send procedure stopped state to server
+        try:
+            if sio.connected:
+                sio.emit("procedure_state", {"running": False})
+        except Exception as e:
+            print(f"Error sending procedure state update: {e}")
 
-    progress_bar["maximum"] = desired_vol
-    progress_bar["value"] = vol_given
-    vol_given_label.config(text=f"Volume Given: {vol_given: .2f} / {desired_vol} μL")
-
-    root.after(1000, update_volume_given) 
+    root.after(1000, update_volume_given)
 
 def set_vitals(vital_info):
     """Update vital sign displays with new values"""
@@ -552,8 +614,8 @@ def create_gui():
             
         # Increase by 1 to match the React frontend
         desired_vol += 1
-        if desired_vol > 30:
-            desired_vol = 30
+        if desired_vol > 50:
+            desired_vol = 50
         
         # Set flag to ignore echo from server
         desired_vol_changed_locally = True
@@ -652,7 +714,7 @@ def create_gui():
         update_flow_display()
         
         # Update the hardware
-        update_flow(flow_rate)
+        # update_flow(flow_rate)
         
         # Send to server via WebSocket
         try:
@@ -682,7 +744,7 @@ def create_gui():
         update_flow_display()
         
         # Update the hardware
-        update_flow(flow_rate)
+        # update_flow(flow_rate)
         
         # Send to server via WebSocket
         try:
@@ -726,19 +788,23 @@ def create_gui():
     procedure_status_label.pack(pady=10)
 
     def toggle_procedure():
-        global procedure_running
+        global procedure_running, vol_given
         procedure_running = not procedure_running
         
         if procedure_running:
+            # Reset volume given when starting procedure
+            vol_given = 0.0
             procedure_status_label.config(text="Status: Running", fg=COLORS["success"])
             start_stop_btn.config(text="Stop Procedure", bg=COLORS["danger"])
         else:
             procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
             start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
         
-        # Send procedure state update to the server (if applicable)
+        # Send procedure state update to the server
         try:
-            sio.emit("procedure_state", {"running": procedure_running})
+            if socket_connected:
+                sio.emit("procedure_state", {"running": procedure_running})
+                print(f"Sent procedure state update to server: {'Running' if procedure_running else 'Stopped'}")
         except Exception as e:
             print(f"Error sending procedure state update: {e}")
 
@@ -819,7 +885,7 @@ def initialize_servo():
                 )
                 
                 # Set initial position to minimum (corresponds to 0 flow rate)
-                servo.value = SERVO_MIN_VALUE
+                servo.value = SERVO_MAX_VALUE
                 print(f"Servo initialized successfully on GPIO pin {SERVO_PIN} using {factory_name}")
                 return True
             except Exception as e:
@@ -869,6 +935,7 @@ if __name__ == "__main__":
     # Start the vital signs update loop
     update_vitals(app)
     update_volume_given()
+    update_flow()
 
     try:
         # Start the main loop
