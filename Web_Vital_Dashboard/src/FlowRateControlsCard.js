@@ -126,20 +126,32 @@ function FlowRateControlsCard() {
         return;
       }
       
+      // Log current state
+      console.log(`Before toggle: Procedure is ${procedureRunning ? 'running' : 'stopped'}`);
+      
       // Set flag to ignore our own update when it comes back
       localChangeRef.current = true;
       
       // Update local state immediately
-      setProcedureRunning(!procedureRunning);
+      const newState = !procedureRunning;
+      setProcedureRunning(newState);
       
       // If starting procedure, reset volume given
-      if (!procedureRunning) {
+      if (newState) {
         setVolumeGiven(0);
       }
       
       // Send to server via WebSocket
-      console.log("Sending procedure state update:", !procedureRunning);
-      socketRef.current.emit("procedure_state", { running: !procedureRunning });
+      console.log(`Sending procedure state update: ${newState ? 'Running' : 'Stopped'}`);
+      socketRef.current.emit("procedure_state", { running: newState });
+      
+      // Add a timeout to reset the localChangeRef flag in case we don't receive our own update
+      setTimeout(() => {
+        if (localChangeRef.current) {
+          console.log("Resetting localChangeRef flag after timeout");
+          localChangeRef.current = false;
+        }
+      }, 1000);
     };
     
     // Increase desired volume

@@ -161,12 +161,21 @@ def handle_procedure_state_update(data):
     try:
         new_state = bool(data.get("running", PROCEDURE_RUNNING))
         
-        # Update the global procedure state
-        PROCEDURE_RUNNING = new_state
-        print(f"Procedure state updated via WebSocket to: {'Running' if PROCEDURE_RUNNING else 'Stopped'} by client {request.sid}")
+        # Log the incoming update
+        print(f"DEBUG: Received procedure state update: {'Running' if new_state else 'Stopped'}")
+        print(f"DEBUG: Current state: {'Running' if PROCEDURE_RUNNING else 'Stopped'}")
         
-        # Broadcast to all clients EXCEPT the sender
-        emit("procedure_state_update", {"running": PROCEDURE_RUNNING}, broadcast=True, include_self=False)
+        # Update the global procedure state
+        if new_state != PROCEDURE_RUNNING:
+            PROCEDURE_RUNNING = new_state
+            print(f"DEBUG: Procedure state updated to: {'Running' if PROCEDURE_RUNNING else 'Stopped'} by client {request.sid}")
+            
+            # Broadcast to all clients EXCEPT the sender
+            emit("procedure_state_update", {"running": PROCEDURE_RUNNING}, broadcast=True, include_self=False)
+            print(f"DEBUG: Broadcasted procedure state update to other clients")
+        else:
+            print(f"DEBUG: No change in procedure state, still: {'Running' if PROCEDURE_RUNNING else 'Stopped'}")
+            
         return {"status": "success", "running": PROCEDURE_RUNNING}
     except Exception as e:
         print(f"Error updating procedure state: {e}")
