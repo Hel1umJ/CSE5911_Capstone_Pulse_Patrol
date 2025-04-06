@@ -210,7 +210,6 @@ function FlowRateControlsCard() {
     return(
         <div className="flow-rate-controls">
             <div className="flow-card">
-                <FlowRateCard />
 
                 {/* Desired Volume Control */}
                 <div className="card col control">
@@ -240,6 +239,7 @@ function FlowRateControlsCard() {
                     )}
                     </div>
                 </div>
+                <FlowRateCard />
             </div>
 
             {/* Procedure Control */}
