@@ -199,6 +199,28 @@ def on_flow_rate_update(data):
         if flow_value_label and 'root' in globals():
             root.after(0, lambda: flow_value_label.config(text=f"{flow_rate}"))
 
+@sio.on("desired_vol_update")
+def on_desired_vol_update(data):
+    """Handle desired volume updates from server"""
+    global desired_vol, desired_vol_changed_locally
+    
+    # If we made the change locally, ignore the update to avoid feedback loops
+    if desired_vol_changed_locally:
+        desired_vol_changed_locally = False
+        return
+    
+    # Update desired volume
+    new_desired_vol = int(data.get("desired_vol", desired_vol))
+    
+    # Update global desired volume
+    if new_desired_vol != desired_vol:
+        desired_vol = new_desired_vol
+        print(f"Desired volume updated from server: {desired_vol}")
+        
+        # Update display (need to use Tkinter's after method to safely update UI from another thread)
+        if 'desired_volume_label' in globals() and 'root' in globals():
+            root.after(0, lambda: desired_volume_label.config(text=f"{desired_vol}"))
+
 @sio.on("procedure_state_update")
 def on_procedure_state_update(data):
     """Handle procedure state updates from server"""
@@ -397,9 +419,13 @@ def update_volume_given():
        vol_given = vol_given + (flow_rate / 60.0)
 
     # Update UI elements
-    progress_bar["maximum"] = desired_vol
-    progress_bar["value"] = vol_given
-    vol_given_label.config(text=f"Volume Given: {vol_given: .2f} / {desired_vol} μL")
+    if 'progress_bar' in globals() and 'vol_given_label' in globals():
+        progress_bar["maximum"] = desired_vol
+        progress_bar["value"] = vol_given
+        vol_given_label.config(text=f"Volume Given: {vol_given:.2f} / {desired_vol} μL")
+    
+    # Print debug information
+    print(f"DEBUG: Procedure running: {procedure_running}, Vol: {vol_given:.2f}/{desired_vol}, Flow rate: {flow_rate}")
     
     # Send the updated volume given to the server via WebSocket
     try:
@@ -409,14 +435,19 @@ def update_volume_given():
         print(f"Error sending volume given update: {e}")
 
     # Check if we've reached target volume
-    if procedure_running and vol_given >= desired_vol:
+    if procedure_running and vol_given >= desired_vol and desired_vol > 0:
+        print("DEBUG: Target volume reached! Stopping procedure...")
         procedure_running = False
-        procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
-        start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
+        
+        # Update UI
+        if 'procedure_status_label' in globals() and 'start_stop_btn' in globals():
+            procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
+            start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
         
         # Send procedure stopped state to server
         try:
             if sio.connected:
+                print("DEBUG: Sending procedure stopped state to server...")
                 sio.emit("procedure_state", {"running": False})
         except Exception as e:
             print(f"Error sending procedure state update: {e}")
