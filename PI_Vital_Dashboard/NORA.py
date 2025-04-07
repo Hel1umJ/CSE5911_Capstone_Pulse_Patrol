@@ -199,22 +199,50 @@ def on_flow_rate_update(data):
         if flow_value_label and 'root' in globals():
             root.after(0, lambda: flow_value_label.config(text=f"{flow_rate}"))
 
+@sio.on("desired_vol_update")
+def on_desired_vol_update(data):
+    """Handle desired volume updates from server"""
+    global desired_vol, desired_vol_changed_locally
+    
+    # If we made the change locally, ignore the update to avoid feedback loops
+    if desired_vol_changed_locally:
+        desired_vol_changed_locally = False
+        return
+    
+    # Update desired volume
+    new_desired_vol = int(data.get("desired_vol", desired_vol))
+    
+    # Update global desired volume
+    if new_desired_vol != desired_vol:
+        desired_vol = new_desired_vol
+        print(f"Desired volume updated from server: {desired_vol}")
+        
+        # Update display (need to use Tkinter's after method to safely update UI from another thread)
+        if 'desired_volume_label' in globals() and 'root' in globals():
+            root.after(0, lambda: desired_volume_label.config(text=f"{desired_vol}"))
+
 @sio.on("procedure_state_update")
 def on_procedure_state_update(data):
     """Handle procedure state updates from server"""
-    global procedure_running, vol_given
+    global procedure_running, vol_given, actual_vol_given
     
-    # Update procedure state
+    # Get the new state from data
     new_state = bool(data.get("running", procedure_running))
+    
+    # Print debug info
+    print(f"DEBUG: Received procedure state update from server: {'Running' if new_state else 'Stopped'}")
+    print(f"DEBUG: Current state: {'Running' if procedure_running else 'Stopped'}")
     
     # Only update if state is different
     if new_state != procedure_running:
         procedure_running = new_state
-        print(f"Procedure state updated from server: {'Running' if procedure_running else 'Stopped'}")
+        print(f"DEBUG: Procedure state updated from server: {'Running' if procedure_running else 'Stopped'}")
         
         # If starting procedure, reset volume given
         if procedure_running:
             vol_given = 0.0
+            if 'actual_vol_given' in globals():
+                actual_vol_given = 0.0
         
         # Update UI (need to use Tkinter's after method to safely update UI from another thread)
         if 'procedure_status_label' in globals() and 'start_stop_btn' in globals() and 'root' in globals():
@@ -224,6 +252,8 @@ def on_procedure_state_update(data):
             else:
                 root.after(0, lambda: procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"]))
                 root.after(0, lambda: start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"]))
+    else:
+        print("DEBUG: Ignored server state update - already in that state")
 
 def try_reconnect():
     """Try to reconnect to the WebSocket server"""
@@ -362,16 +392,13 @@ def update_flow():
             # At MAX_FLOW_RATE, position is 1 (max position)
             # position = SERVO_MIN_VALUE + (flow_-rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
             
-            if procedure_running:
-                # num_seconds_running += 1
-
+            if procedure_running:   
                 if actual_vol_given < vol_given:
-
                     servo.value = servo.value - step_size
                     actual_vol_given = actual_vol_given + vol_per_step
-
-
-                # print(f"Setting servo position to: {servo_position:.2f} for flow rate: {flow_rate} μL/min")
+            else:
+                # Debug log for when procedure is stopped
+                print(f"DEBUG: Update flow - procedure stopped, servo idle")
 
             root.after(1000, update_flow) 
 
@@ -381,6 +408,7 @@ def update_flow():
     else:
         # Not running on Pi or servo not initialized
         print(f"Servo flow rate set to {flow_rate} μL/min (simulation mode)")
+        root.after(1000, update_flow)
     
     return True
 
@@ -397,9 +425,13 @@ def update_volume_given():
        vol_given = vol_given + (flow_rate / 60.0)
 
     # Update UI elements
-    progress_bar["maximum"] = desired_vol
-    progress_bar["value"] = vol_given
-    vol_given_label.config(text=f"Volume Given: {vol_given: .2f} / {desired_vol} μL")
+    if 'progress_bar' in globals() and 'vol_given_label' in globals():
+        progress_bar["maximum"] = desired_vol
+        progress_bar["value"] = vol_given
+        vol_given_label.config(text=f"Volume Given: {vol_given:.2f} / {desired_vol} μL")
+    
+    # Print debug information
+    print(f"DEBUG: Procedure running: {procedure_running}, Vol: {vol_given:.2f}/{desired_vol}, Flow rate: {flow_rate}")
     
     # Send the updated volume given to the server via WebSocket
     try:
@@ -409,14 +441,19 @@ def update_volume_given():
         print(f"Error sending volume given update: {e}")
 
     # Check if we've reached target volume
-    if procedure_running and vol_given >= desired_vol:
+    if procedure_running and vol_given >= desired_vol and desired_vol > 0:
+        print("DEBUG: Target volume reached! Stopping procedure...")
         procedure_running = False
-        procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
-        start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
+        
+        # Update UI
+        if 'procedure_status_label' in globals() and 'start_stop_btn' in globals():
+            procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
+            start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
         
         # Send procedure stopped state to server
         try:
             if sio.connected:
+                print("DEBUG: Sending procedure stopped state to server...")
                 sio.emit("procedure_state", {"running": False})
         except Exception as e:
             print(f"Error sending procedure state update: {e}")
@@ -788,12 +825,19 @@ def create_gui():
     procedure_status_label.pack(pady=10)
 
     def toggle_procedure():
+        """Toggle procedure running state and sync with server"""
         global procedure_running, vol_given
+        
+        # Toggle the state
         procedure_running = not procedure_running
+        
+        # Print debug info
+        print(f"DEBUG: Manually toggling procedure to: {'Running' if procedure_running else 'Stopped'}")
         
         if procedure_running:
             # Reset volume given when starting procedure
             vol_given = 0.0
+            actual_vol_given = 0.0  # Reset this too if it's being used
             procedure_status_label.config(text="Status: Running", fg=COLORS["success"])
             start_stop_btn.config(text="Stop Procedure", bg=COLORS["danger"])
         else:
@@ -802,9 +846,11 @@ def create_gui():
         
         # Send procedure state update to the server
         try:
-            if socket_connected:
+            if sio.connected:
+                print(f"DEBUG: Sending manual procedure state update: {'Running' if procedure_running else 'Stopped'}")
                 sio.emit("procedure_state", {"running": procedure_running})
-                print(f"Sent procedure state update to server: {'Running' if procedure_running else 'Stopped'}")
+            else:
+                print("DEBUG: Socket not connected! Cannot sync procedure state.")
         except Exception as e:
             print(f"Error sending procedure state update: {e}")
 
