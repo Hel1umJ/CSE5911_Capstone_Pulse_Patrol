@@ -24,7 +24,7 @@ function App() {
       </div>
 
       <div className="row ecg">
-        <h1>Heart Rate Monitoring</h1>
+          <h1>Vitals Log</h1>
         <GraphWrapper />
       </div>
 

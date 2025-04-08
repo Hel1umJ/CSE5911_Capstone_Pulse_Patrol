@@ -12,8 +12,8 @@ function SmallSensorCard({ iconName, title, path, unit }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get("/data");
-        
+        const response = await axios.get("http://localhost:5000/data");
+
         // Map the path to the appropriate field in the response
         // We'll use a mapping object to handle different paths
         const dataMapping = {
