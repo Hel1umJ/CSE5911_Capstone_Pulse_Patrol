@@ -1,0 +1,45 @@
+.app {
+    max-width: 1700px;
+    margin: 0 auto;
+    padding: 10px 20px;
+  }
+  
+  .row {
+    margin-bottom: 20px;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: var(--bgAccent1);
+  }
+  
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .blood-pres {
+    padding: 10px;
+    background-color: var(--bgAccent2);
+    width: 100%;
+    border-radius: 18px;
+  }
+  
+  @media (max-width: 768px) {
+    .controls-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .ecg h1 {
+    margin-bottom: 15px;
+    color: #b10000;
+  }
+  
+  .accent-col {
+    display: flex;
+    gap: 15px;
+  }
+  
+  .accent-row {
+    width: 100%;
+  }
