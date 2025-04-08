@@ -27,9 +27,7 @@ function AccentCard() {
             <h5>{dob}</h5>
           </div>
         </div>
-        <div className="toggle">
-          <ThemeToggle />
-        </div>
+        
       </div>
       <div className="accent-col">
         <div className="accent-row">

@@ -14,22 +14,14 @@ function GraphWrapper() {
   const dataPointsRef = useRef(0); // To keep track of total points for x-axis
   
   // Maximum number of points to display on graph
-  const MAX_POINTS = 50;
+  const MAX_POINTS = 150;
 
   useEffect(() => {
-    // Start with some initial empty data
-    const initialData = Array.from({ length: MAX_POINTS }, (_, i) => ({
-      x: i,
-      y: null // null will not be plotted
-    }));
-    //setHeartRateData(initialData);
-    //setSPO2Data(initialData);
-    
+
     // Function to fetch the latest data
     const fetchData = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/data");
-        console.log("Response: ", response);
+        const response = await axios.get("/data");
         
         // Extract heart rate from response
         const newHeartRate = response.data.heart_rate;
@@ -115,7 +107,7 @@ function GraphWrapper() {
       }
     };
 
-    // Set up polling interval (every 1 second)
+    // Set up polling interval (every 10 seconds)
     const interval = setInterval(fetchData, 10000);
     
     // Initial fetch

@@ -8,7 +8,7 @@ function BloodPressureCard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/data");
+        const response = await axios.get("/data");
         
         if (response.data) {
           setData({
