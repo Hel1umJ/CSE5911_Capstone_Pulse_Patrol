@@ -1,0 +1,2 @@
+https://randomnerdtutorials.com/raspberry-pi-analog-inputs-python-mcp3008/
+

@@ -1,0 +1,57 @@
+.lg-accent-card {
+    background-color: var(--bgAccent1);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.primary {
+    color: var(--text);
+}
+
+.accent-col {
+    margin-top: 2px;
+    gap: 5px;
+    display: inline-flex;
+    width: 100%;
+    align-items: baseline;
+}
+
+.accent-row {
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+    flex: 50%;
+    height: 100%;
+    margin-bottom: auto;
+    margin-right: 5px;
+    margin-left: 5px;
+    padding-bottom: 5px;;
+}
+
+.user-info {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    margin-right: auto;
+}
+
+.toggle {
+    margin-left: auto;
+}
+
+.img-card {
+    width: 10%;
+}
+
+img {
+    width: 35%;
+    height: 35%;
+    border-radius: 24px;
+    vertical-align: middle;
+}
+
+.lg-accent-card h1 {
+    margin-top: 10px;
+}
