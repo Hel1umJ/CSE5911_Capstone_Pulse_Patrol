@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 import datetime
+=======
+>>>>>>> 2e890db6b809ad7e1654cd8455a1fdf4a23cbe82
 import tkinter as tk
 from tkinter import ttk
 import random as rand
@@ -106,8 +109,11 @@ PULSEOX_SPI_CE0 = 8   # Data channel select pin
 
 
 UPDATE_INTERVAL = 1000 #in ms
+<<<<<<< HEAD
 LOG_INTERVAL = 10000 # how often logs of vitals recorded
 time_since_log = LOG_INTERVAL # set to log interval so it prints first time
+=======
+>>>>>>> 2e890db6b809ad7e1654cd8455a1fdf4a23cbe82
 vital_labels = {} #dict to store references to each vital's value label; we will use these to update the sensor values
 MAX_POINTS = 30 #number of points to store on the graph; 1 point for every tick/update interval
 
@@ -123,7 +129,10 @@ flow_rate_changed_locally = False  # Flag to track local changes
 desired_vol = 0 #Default, initial flow rate setting in μl (whole number)
 desired_vol_changed_locally = False  # Flag to track local changes
 socket_connected = False  # Flag to track socket connection status
+<<<<<<< HEAD
 reconnect_happening = False # flag to check if a reconnect is happening
+=======
+>>>>>>> 2e890db6b809ad7e1654cd8455a1fdf4a23cbe82
 
 procedure_running = False  # Flag to track if procedure is running
 vol_given = 0.0 # Used to track the total volume that should have been dispensed
@@ -261,6 +270,7 @@ def on_procedure_state_update(data):
 
 def try_reconnect():
     """Try to reconnect to the WebSocket server"""
+<<<<<<< HEAD
     global reconnect_happening
     if not reconnect_happening:
         reconnect_happening = True
@@ -272,6 +282,15 @@ def try_reconnect():
             print(f"Failed to reconnect: {e}")
             # Schedule another attempt
             threading.Timer(5.0, try_reconnect).start()
+=======
+    try:
+        if not sio.connected:
+            sio.connect(SOCKET_URL)
+    except Exception as e:
+        print(f"Failed to reconnect: {e}")
+        # Schedule another attempt
+        threading.Timer(5.0, try_reconnect).start()
+>>>>>>> 2e890db6b809ad7e1654cd8455a1fdf4a23cbe82
 
 def connect_to_socket():
     """Connect to the WebSocket server"""
@@ -350,7 +369,11 @@ def update_vitals(root):
     """
     Called once every UPDATE_INTERVAL to refresh displayed vital values
     """
+<<<<<<< HEAD
     global t_step, time_since_log
+=======
+    global t_step
+>>>>>>> 2e890db6b809ad7e1654cd8455a1fdf4a23cbe82
     
     #TODO: retrieve sensor information and pass it into set vitals here; return it in format below
     #sensor_info = getSensorInfo()
@@ -362,6 +385,7 @@ def update_vitals(root):
 
     set_vitals(sensor_info) 
 
+<<<<<<< HEAD
     if procedure_running:
         if time_since_log >= LOG_INTERVAL:
             output_to_file(sensor_info)
@@ -369,6 +393,8 @@ def update_vitals(root):
         else:
             time_since_log += UPDATE_INTERVAL
 
+=======
+>>>>>>> 2e890db6b809ad7e1654cd8455a1fdf4a23cbe82
     # Append data for graphing; update rolling window by chopping off old data.
     ecg_data.append(sensor_info["hr"])
     time_axis.append(t_step)
@@ -379,6 +405,7 @@ def update_vitals(root):
 
     draw_graphs()
     
+<<<<<<< HEAD
     if socket_connected:
         send_data(sensor_info) # send data to the server
   
@@ -393,6 +420,12 @@ def output_to_file(sensor_info):
     file.write('BP: ' + str(sensor_info["bp"]) + '\n')
     file.write('\n')
 
+=======
+    send_data(sensor_info) # send data to the server
+  
+    root.after(UPDATE_INTERVAL, update_vitals, root) #Update with sensor data every 1000ms
+
+>>>>>>> 2e890db6b809ad7e1654cd8455a1fdf4a23cbe82
 def update_flow():
     """
     Updates the hardware with the current flow rate
