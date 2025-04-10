@@ -438,98 +438,95 @@ def update_flow():
         # Using direct PWM control
         if SERVO_DIRECT_ENABLED and pwm is not None:
             try:
-                if procedure_running and flow_rate > 0:
-                    # Debug info
-                    print(f"DEBUG: Flow Rate: {flow_rate}, Target vol: {desired_vol}, Current vol: {vol_given}")
-                    
+                # Print current state for debugging
+                print(f"DEBUG: procedure_running={procedure_running}, flow_rate={flow_rate}, desired_vol={desired_vol}, vol_given={vol_given}")
+                
+                if procedure_running and flow_rate > 0 and desired_vol > 0:
                     if vol_given < desired_vol:
                         # Calculate what percentage of the target volume has been given
-                        volume_percentage = min(vol_given / desired_vol, 1.0) if desired_vol > 0 else 0
+                        # This determines how far along the motion range we should be
+                        volume_percentage = vol_given / desired_vol
                         
-                        # Map this percentage to the servo's duty cycle range
-                        # At 0% volume, we're at min_duty (0 degrees)
-                        # At 100% volume, we're at the angle corresponding to desired_vol
-                        max_angle_percent = desired_vol / MAX_SYRINGE_VOLUME  # How far to move through total range
-                        target_duty = min_duty + (max_duty - min_duty) * volume_percentage * max_angle_percent
+                        # Calculate the full sweep range for the servo regardless of desired_vol
+                        # This ensures we're using the full motion range of the servo
+                        target_duty = min_duty + (max_duty - min_duty) * volume_percentage
                         
-                        # Set the servo position based on current volume
+                        # Set the servo position based on current volume percentage
                         print(f"DEBUG: Volume {vol_given:.2f}/{desired_vol} = {volume_percentage*100:.1f}%")
                         print(f"DEBUG: Setting PWM duty cycle to {target_duty:.2f}%")
                         
-                        # Update servo position
+                        # Update servo position - force movement by always setting the duty cycle
+                        # This is critical to ensure the servo actually moves
                         pwm.ChangeDutyCycle(target_duty)
-                        time.sleep(0.1)  # Give time for servo to respond
-                        pwm.ChangeDutyCycle(0)  # Stop sending pulses, prevents jittering
                         
-                        # We don't increment volume here - that happens in update_volume_given
+                        # Give the servo time to move, but don't stop sending the signal
+                        # until it really needs to move again
+                        time.sleep(0.2)
                     else:
                         # Target volume reached - ensure servo is at final position
-                        max_angle_percent = desired_vol / MAX_SYRINGE_VOLUME
-                        final_duty = min_duty + (max_duty - min_duty) * max_angle_percent
+                        print(f"DEBUG: Target volume reached: {vol_given:.2f}/{desired_vol}")
                         
-                        print(f"DEBUG: Target volume reached, setting final position: {final_duty:.2f}%")
-                        pwm.ChangeDutyCycle(final_duty)
-                        time.sleep(0.2)  # Longer time to ensure position is reached
-                        pwm.ChangeDutyCycle(0)  # Stop sending pulses
-                else:
-                    if not procedure_running:
-                        # Procedure stopped - reset to initial position
-                        print(f"DEBUG: Procedure stopped, resetting servo position")
-                        pwm.ChangeDutyCycle(min_duty)  # Return to 0 position (syringe empty)
-                        time.sleep(0.2)
-                        pwm.ChangeDutyCycle(0)  # Stop sending pulses
-                    elif flow_rate == 0:
-                        # Flow rate is 0 - maintain current position but stop pulses
-                        print(f"DEBUG: Flow rate is 0, holding current position")
-                        pwm.ChangeDutyCycle(0)  # Just ensure no pulses are sent
+                        # Move to the full extent (100% of the range)
+                        pwm.ChangeDutyCycle(max_duty)
+                        time.sleep(0.3)  # Longer time to ensure position is reached
+                        pwm.ChangeDutyCycle(0)  # Stop sending pulses once in position
+                elif not procedure_running:
+                    # Procedure is not running - reset to initial position
+                    print(f"DEBUG: Procedure not running, resetting servo position")
+                    pwm.ChangeDutyCycle(min_duty)  # Return to minimum position
+                    time.sleep(0.3)
+                    pwm.ChangeDutyCycle(0)  # Stop sending pulses once in position
+                elif flow_rate == 0:
+                    # Flow rate is 0 - maintain current position
+                    print(f"DEBUG: Flow rate is 0, maintaining position")
+                    # Don't send any signal to maintain position
                 
                 # Schedule next update
                 root.after(100, update_flow)  # Update 10 times per second
                 
             except Exception as e:
                 print(f"Error controlling servo with direct PWM: {e}")
+                print(f"Exception details: {str(e)}")
                 return False
                 
         # Using gpiozero Servo - similar logic as above but with gpiozero API
         elif servo is not None:
             try:
-                if procedure_running and flow_rate > 0:
-                    # Debug the current position and calculation
-                    print(f"DEBUG: Current servo value: {servo.value}, Target vol: {desired_vol}, Current vol: {vol_given}")
-                    
+                # Print current state for debugging
+                print(f"DEBUG: (gpiozero) procedure_running={procedure_running}, flow_rate={flow_rate}, desired_vol={desired_vol}, vol_given={vol_given}")
+                
+                if procedure_running and flow_rate > 0 and desired_vol > 0:
                     if vol_given < desired_vol:
                         # Calculate what percentage of the target volume has been given
-                        volume_percentage = min(vol_given / desired_vol, 1.0) if desired_vol > 0 else 0
+                        volume_percentage = vol_given / desired_vol
                         
-                        # Map this percentage to the servo's value range (-1 to 1)
-                        # At 0% volume, we're at SERVO_MIN_VALUE
-                        # At 100% volume, we're at the position corresponding to desired_vol
-                        max_angle_percent = desired_vol / MAX_SYRINGE_VOLUME
-                        # Convert 0-1 range to SERVO_MIN_VALUE to SERVO_MAX_VALUE range
-                        target_position = SERVO_MIN_VALUE + (SERVO_MAX_VALUE - SERVO_MIN_VALUE) * volume_percentage * max_angle_percent
+                        # Map this percentage to the servo's full range (-1 to 1)
+                        # For SG90 with gpiozero, we use -1 to 1 range
+                        target_position = SERVO_MIN_VALUE + (SERVO_MAX_VALUE - SERVO_MIN_VALUE) * volume_percentage
                         
-                        # Update servo position
+                        # Update servo position - force movement
+                        print(f"DEBUG: Volume {vol_given:.2f}/{desired_vol} = {volume_percentage*100:.1f}%")
                         print(f"DEBUG: Setting servo position to {target_position:.4f}")
                         servo.value = target_position
                     else:
                         # Target volume reached - ensure servo is at final position
-                        max_angle_percent = desired_vol / MAX_SYRINGE_VOLUME
-                        final_position = SERVO_MIN_VALUE + (SERVO_MAX_VALUE - SERVO_MIN_VALUE) * max_angle_percent
-                        
-                        print(f"DEBUG: Target volume reached, setting final position: {final_position:.4f}")
-                        servo.value = final_position
-                else:
-                    if not procedure_running:
-                        # Procedure stopped - reset to initial position
-                        print(f"DEBUG: Procedure stopped, resetting servo position")
-                        servo.value = SERVO_MIN_VALUE  # Return to minimum position
-                    # If flow rate is 0, just maintain current position
+                        print(f"DEBUG: Target volume reached, setting final position")
+                        servo.value = SERVO_MAX_VALUE  # Move to maximum position
+                elif not procedure_running:
+                    # Procedure stopped - reset to initial position
+                    print(f"DEBUG: Procedure stopped, resetting servo position")
+                    servo.value = SERVO_MIN_VALUE  # Return to minimum position
+                elif flow_rate == 0:
+                    # Flow rate is 0 - maintain current position
+                    print(f"DEBUG: Flow rate is 0, maintaining position")
+                    # Don't change servo value to maintain position
                 
                 # Schedule next update
                 root.after(100, update_flow)  # Update 10 times per second
-            
+                
             except Exception as e:
                 print(f"Error controlling servo with gpiozero: {e}")
+                print(f"Exception details: {str(e)}")
                 return False
         else:
             # No servo control method available
@@ -550,21 +547,31 @@ def update_flow():
 
 def update_volume_given():
     """
-    Updates the anesthesia given based on flow rate and time.
+    Updates the volume given based on flow rate and time.
     """
     global vol_given
     global procedure_running
 
-    if procedure_running:   
-       vol_given = vol_given + (flow_rate / 60.0)
+    # Only increment volume if procedure is running and we have flow
+    if procedure_running and flow_rate > 0:
+        # Calculate increment based on flow rate (μL/min)
+        # We update once per second, so divide by 60 to get per-second rate
+        vol_increment = flow_rate / 60.0
+        vol_given += vol_increment
+        
+        # Ensure we don't exceed desired volume
+        if vol_given > desired_vol and desired_vol > 0:
+            vol_given = desired_vol
+            
+        print(f"DEBUG: Incremented volume by {vol_increment:.2f}μL to {vol_given:.2f}μL")
 
     # Update UI elements
     if 'progress_bar' in globals() and 'vol_given_label' in globals():
-        progress_bar["maximum"] = desired_vol
+        progress_bar["maximum"] = desired_vol if desired_vol > 0 else 1
         progress_bar["value"] = vol_given
         vol_given_label.config(text=f"Volume Given: {vol_given:.2f} / {desired_vol} μL")
     
-    # Print debug information
+    # Print detailed debug information
     print(f"DEBUG: Procedure running: {procedure_running}, Vol: {vol_given:.2f}/{desired_vol}, Flow rate: {flow_rate}")
     
     # Send the updated volume given to the server via WebSocket
@@ -592,6 +599,7 @@ def update_volume_given():
         except Exception as e:
             print(f"Error sending procedure state update: {e}")
 
+    # Schedule next update (1 second)
     root.after(1000, update_volume_given)
 
 def set_vitals(vital_info):
@@ -960,7 +968,7 @@ def create_gui():
 
     def toggle_procedure():
         """Toggle procedure running state and sync with server"""
-        global procedure_running, vol_given
+        global procedure_running, vol_given, actual_vol_given
         
         # Toggle the state
         procedure_running = not procedure_running
@@ -971,10 +979,24 @@ def create_gui():
         if procedure_running:
             # Reset volume given when starting procedure
             vol_given = 0.0
-            actual_vol_given = 0.0  # Reset this too if it's being used
+            actual_vol_given = 0.0  # Reset this too 
+            
+            # Show detailed debug info about the procedure parameters
+            print(f"DEBUG: Starting procedure with flow_rate={flow_rate}, desired_vol={desired_vol}")
+            
             procedure_status_label.config(text="Status: Running", fg=COLORS["success"])
             start_stop_btn.config(text="Stop Procedure", bg=COLORS["danger"])
+            
+            # Force initial servo position to starting position
+            if SERVO_DIRECT_ENABLED and pwm is not None and is_raspberry_pi:
+                print("DEBUG: Setting servo to initial position")
+                pwm.ChangeDutyCycle(2.5)  # Starting position (0 degrees)
+                time.sleep(0.3)
+                pwm.ChangeDutyCycle(0)  # Stop sending pulses
         else:
+            # Additional debug info when stopping
+            print(f"DEBUG: Stopping procedure after delivering {vol_given:.2f}/{desired_vol} μL")
+            
             procedure_status_label.config(text="Status: Stopped", fg=COLORS["danger"])
             start_stop_btn.config(text="Start Procedure", bg=COLORS["primary"])
         
