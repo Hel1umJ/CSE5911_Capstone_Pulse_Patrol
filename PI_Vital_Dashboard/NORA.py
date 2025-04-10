@@ -453,35 +453,32 @@ def update_servo_position():
                     servo_target_position = min_duty  # Return to start position when stopped
                     continuous_movement = False
                 
-                # Smooth movement: gradually move toward target position
-                # This is essential for continuous motion rather than jumps
-                if continuous_movement or abs(servo_current_position - servo_target_position) > 0.05:
-                    # Determine direction and speed of movement
-                    # Move faster when flow_rate is higher (proportional movement)
-                    movement_speed = (flow_rate / 30.0) * 0.2  # Max 0.2 per update at highest flow rate
+                # Smooth movement: move directly to calculated position based on volume
+                # Instead of incremental steps which might cause jittering
+                if procedure_running and flow_rate > 0 and desired_vol > 0:
+                    # Calculate the direct position based on current volume
+                    volume_percentage = min(vol_given / desired_vol, 1.0) if desired_vol > 0 else 0
+                    target_duty = min_duty + (max_duty - min_duty) * volume_percentage
                     
-                    # Ensure minimum movement speed for responsiveness
-                    movement_speed = max(0.05, movement_speed)
-                    
-                    if servo_current_position < servo_target_position:
-                        # Moving forward
-                        servo_current_position += movement_speed
-                        if servo_current_position > servo_target_position:
-                            servo_current_position = servo_target_position
-                    elif servo_current_position > servo_target_position:
-                        # Moving backward
-                        servo_current_position -= movement_speed
-                        if servo_current_position < servo_target_position:
-                            servo_current_position = servo_target_position
-                    
-                    # Apply the movement to the servo
-                    print(f"DEBUG: Moving servo to {servo_current_position:.2f}% duty ({(servo_current_position-min_duty)/(max_duty-min_duty)*100:.1f}% of range)")
-                    pwm.ChangeDutyCycle(servo_current_position)
-                    
-                    # Only stop PWM when we've reached the target and we're not in continuous movement
-                    if abs(servo_current_position - servo_target_position) < 0.05 and not continuous_movement:
-                        time.sleep(0.1)  # Allow servo to settle
-                        pwm.ChangeDutyCycle(0)  # Stop pulses to prevent jittering
+                    # Only move if the change is significant enough (reduces jitter from tiny movements)
+                    if abs(servo_current_position - target_duty) > 0.1:
+                        servo_current_position = target_duty  # Direct position update
+                        
+                        # Apply the movement to the servo - no gradual steps, go directly to position
+                        print(f"DEBUG: Moving servo to {servo_current_position:.2f}% duty ({(servo_current_position-min_duty)/(max_duty-min_duty)*100:.1f}% of range)")
+                        
+                        # Set position and hold it with continuous signal
+                        pwm.ChangeDutyCycle(servo_current_position)
+                        
+                        # Don't stop PWM during procedure - continuous signal prevents jittering
+                        # Let it keep holding the position
+                elif not procedure_running:
+                    # When not running, stop at min position and turn off PWM
+                    if abs(servo_current_position - min_duty) > 0.1:
+                        servo_current_position = min_duty
+                        pwm.ChangeDutyCycle(min_duty)
+                        time.sleep(0.2)  # Give time to reach position
+                        pwm.ChangeDutyCycle(0)  # Stop pulses when idle
                     
                     # Record when we made this move
                     last_servo_update = current_time
@@ -507,28 +504,24 @@ def update_servo_position():
                     servo_target_position = SERVO_MIN_VALUE  # Return to start position when stopped
                     continuous_movement = False
                 
-                # Smooth movement: gradually move toward target position
-                if continuous_movement or abs(servo_current_position - servo_target_position) > 0.02:
-                    # Determine direction and speed of movement
-                    movement_speed = (flow_rate / 30.0) * 0.05  # Max 0.05 per update at highest flow rate
+                # Move directly to calculated position based on volume percentage
+                if procedure_running and flow_rate > 0 and desired_vol > 0:
+                    # Calculate the direct position based on current volume 
+                    volume_percentage = min(vol_given / desired_vol, 1.0) if desired_vol > 0 else 0
+                    target_position = SERVO_MIN_VALUE + (SERVO_MAX_VALUE - SERVO_MIN_VALUE) * volume_percentage
                     
-                    # Ensure minimum movement speed
-                    movement_speed = max(0.01, movement_speed)
-                    
-                    if servo_current_position < servo_target_position:
-                        # Moving forward
-                        servo_current_position += movement_speed
-                        if servo_current_position > servo_target_position:
-                            servo_current_position = servo_target_position
-                    elif servo_current_position > servo_target_position:
-                        # Moving backward
-                        servo_current_position -= movement_speed
-                        if servo_current_position < servo_target_position:
-                            servo_current_position = servo_target_position
-                    
-                    # Apply the movement to the servo
-                    print(f"DEBUG: Moving servo to {servo_current_position:.4f} position")
-                    servo.value = servo_current_position
+                    # Only move if the change is significant enough (reduces jitter)
+                    if abs(servo_current_position - target_position) > 0.05:
+                        servo_current_position = target_position  # Direct position update
+                        
+                        # Apply the movement to the servo - direct positioning
+                        print(f"DEBUG: Moving servo to {servo_current_position:.4f} position ({volume_percentage*100:.1f}% of range)")
+                        servo.value = servo_current_position
+                elif not procedure_running:
+                    # Return to min position when not running
+                    if abs(servo_current_position - SERVO_MIN_VALUE) > 0.05:
+                        servo_current_position = SERVO_MIN_VALUE
+                        servo.value = SERVO_MIN_VALUE
                     
                     # Record when we made this move
                     last_servo_update = current_time
@@ -543,6 +536,7 @@ def update_servo_position():
 def update_flow():
     """
     Updates values based on flow rate - now separated from servo control
+    This function primarily monitors status and checks MCP3008 readings
     """
     global servo, pwm
     global actual_vol_given
@@ -551,7 +545,7 @@ def update_flow():
     global desired_vol
     global continuous_movement, servo_target_position, servo_current_position
     
-    # Try to read from MCP3008 if available
+    # Try to read from MCP3008 if available (just for monitoring)
     try:
         from PulseOX.A2D import read_mcp3008_direct
         _, raw_value = read_mcp3008_direct(0)
@@ -559,23 +553,27 @@ def update_flow():
     except Exception as e:
         print(f"DEBUG: MCP3008 read error: {e}")
     
-    # This function now only sets up parameters for servo movement
-    # and activates continuous movement when appropriate
+    # Print status info (but less frequently to reduce console spam)
     if procedure_running and flow_rate > 0 and desired_vol > 0:
-        # Activate continuous movement mode
-        continuous_movement = True
-        print(f"DEBUG: Flow active, vol_given={vol_given:.2f}/{desired_vol}μL")
+        # Log current procedure status
+        percent_complete = (vol_given / desired_vol * 100) if desired_vol > 0 else 0
+        print(f"DEBUG: Procedure active - {vol_given:.2f}/{desired_vol}μL ({percent_complete:.1f}%) at {flow_rate}μL/min")
     else:
-        # Update status 
-        if not procedure_running:
-            print(f"DEBUG: Procedure not running")
-        elif flow_rate == 0:
-            print(f"DEBUG: Flow rate is 0")
-        elif desired_vol <= 0:
-            print(f"DEBUG: Invalid desired volume: {desired_vol}")
+        # Only log once every few cycles to avoid spam
+        if not hasattr(update_flow, "counter"):
+            update_flow.counter = 0
+        update_flow.counter += 1
+        
+        if update_flow.counter % 5 == 0:  # Log every 5th call
+            if not procedure_running:
+                print(f"DEBUG: Procedure not running")
+            elif flow_rate == 0:
+                print(f"DEBUG: Flow rate is 0")
+            elif desired_vol <= 0:
+                print(f"DEBUG: Invalid desired volume: {desired_vol}")
     
-    # Schedule next flow update
-    root.after(500, update_flow)  # Update every 500ms
+    # Schedule next flow update (reduced frequency)
+    root.after(1000, update_flow)  # Update every second is enough
     
     return True
 
