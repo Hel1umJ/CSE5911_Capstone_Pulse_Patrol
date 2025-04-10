@@ -378,29 +378,46 @@ def update_flow():
     global actual_vol_given
     global vol_given
     global SERVO_MAX_VALUE
-    # servo_position = SERVO_MAX_VALUE
     step_size = 0.01 # 2000 total steps
     syringe_size = 50000 # 50000 microliters = 50 ml
     vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
 
+    # Try to read from MCP3008 if available
+    try:
+        from PulseOX.A2D import read_mcp3008_direct
+        _, raw_value = read_mcp3008_direct(0)
+        print(f"DEBUG: MCP3008 raw reading: {raw_value}")
+    except Exception as e:
+        print(f"DEBUG: MCP3008 read error: {e}")
 
     # Map flow rate from (0-30) to servo position range (-1 to 1)
     if is_raspberry_pi and servo is not None:
         try:
-            # Map from flow_rate (0-30) to servo position (-1 to 1)
-            # At 0 flow rate, position is -1 (min position)
-            # At MAX_FLOW_RATE, position is 1 (max position)
-            # position = SERVO_MIN_VALUE + (flow_-rate_value / MAX_FLOW_RATE) * (SERVO_MAX_VALUE - SERVO_MIN_VALUE)
-            
-            if procedure_running:   
+            # Calculate servo position based on flow rate
+            if procedure_running and flow_rate > 0:
+                # Debug the current position and calculation
+                print(f"DEBUG: Current servo value: {servo.value}, Target vol: {vol_given}, Actual vol: {actual_vol_given}")
+                
+                # Move servo more aggressively based on flow rate
+                # Higher flow rate = faster servo movement
+                current_step_size = step_size * (flow_rate / 10)  # Scale step size based on flow rate
+                
                 if actual_vol_given < vol_given:
-                    servo.value = servo.value - step_size
-                    actual_vol_given = actual_vol_given + vol_per_step
+                    # Move servo toward max position (1)
+                    new_position = servo.value - current_step_size
+                    # Ensure we don't go beyond maximum
+                    if new_position < SERVO_MIN_VALUE:
+                        new_position = SERVO_MIN_VALUE
+                        
+                    print(f"DEBUG: Moving servo to {new_position} (step size: {current_step_size})")
+                    servo.value = new_position
+                    actual_vol_given = actual_vol_given + (vol_per_step * (flow_rate / 10))
+                    print(f"DEBUG: New actual volume: {actual_vol_given}")
             else:
                 # Debug log for when procedure is stopped
                 print(f"DEBUG: Update flow - procedure stopped, servo idle")
 
-            root.after(1000, update_flow) 
+            root.after(100, update_flow)  # Update more frequently (10 times per second)
 
         except Exception as e:
             print(f"Error controlling servo: {e}")
@@ -933,6 +950,37 @@ def initialize_servo():
                 # Set initial position to minimum (corresponds to 0 flow rate)
                 servo.value = SERVO_MAX_VALUE
                 print(f"Servo initialized successfully on GPIO pin {SERVO_PIN} using {factory_name}")
+                
+                # Test servo movement
+                print("Testing servo movement...")
+                try:
+                    # Move to different positions to confirm servo is working
+                    print("Moving servo to 0.0")
+                    servo.value = 0.0
+                    time.sleep(0.5)
+                    print("Moving servo to -0.5")
+                    servo.value = -0.5
+                    time.sleep(0.5)
+                    print("Moving servo to 0.5")
+                    servo.value = 0.5
+                    time.sleep(0.5)
+                    # Return to initial position
+                    print("Moving servo back to max")
+                    servo.value = SERVO_MAX_VALUE
+                    print("Servo test complete!")
+                except Exception as e:
+                    print(f"Warning: Servo test movement failed: {e}")
+                
+                # Also try to initialize MCP3008 for testing
+                try:
+                    from PulseOX.A2D import initialize_mcp3008, read_mcp3008_direct
+                    adc = initialize_mcp3008(channel=0)
+                    if adc:
+                        _, raw_value = read_mcp3008_direct(0)
+                        print(f"MCP3008 test reading: {raw_value}")
+                except Exception as e:
+                    print(f"MCP3008 initialization failed: {e}")
+                
                 return True
             except Exception as e:
                 print(f"Failed to initialize with {factory_name}: {e}")
