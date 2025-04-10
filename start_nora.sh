@@ -19,32 +19,22 @@ if [[ $(uname -m) == arm* ]] || [[ $(uname -m) == aarch* ]]; then
   IS_RASPBERRY_PI=true
 fi
 
-# Install dependencies if needed
-if [ ! -f "$VENV_DIR/.dependencies_installed" ]; then
-  echo "Installing dependencies..."
-  # NORA.py dependencies
-  pip install matplotlib pillow python-socketio requests tk
-  # server.py dependencies
-  pip install flask flask-cors flask-socketio
-  
-  # Install GPIO libraries for Raspberry Pi
-  if [ "$IS_RASPBERRY_PI" = true ]; then
-    echo "Installing GPIO libraries..."
-    sudo apt-get update -y
-    sudo apt-get install -y python3-gpiozero python3-lgpio python3-rpi.gpio
-    pip install gpiozero RPi.GPIO lgpio
-    
-    # Try to install pigpio as a fallback option
-    sudo apt-get install -y pigpio python3-pigpio
-    pip install pigpio
-  fi
-  
-  # Mark dependencies as installed
-  touch "$VENV_DIR/.dependencies_installed"
-  echo "Dependencies installed successfully"
-else
-  echo "Dependencies already installed"
+# Install dependencies every time
+echo "Installing dependencies..."
+# NORA.py dependencies
+pip install matplotlib pillow python-socketio requests tk
+# server.py dependencies
+pip install flask flask-cors flask-socketio
+
+# Install GPIO libraries for Raspberry Pi
+if [ "$IS_RASPBERRY_PI" = true ]; then
+  echo "Installing GPIO libraries..."
+  sudo apt-get update -y
+  sudo apt-get install -y python3-gpiozero
+  pip install gpiozero
 fi
+
+echo "Dependencies installed successfully"
 
 
 if [ "$IS_RASPBERRY_PI" = true ]; then
