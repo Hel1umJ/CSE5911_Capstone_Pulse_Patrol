@@ -1,0 +1,218 @@
+Installing dependencies...
+Looking in indexes: https://pypi.org/simple, https://www.piwheels.org/simple
+Requirement already satisfied: matplotlib in ./.venv/lib/python3.11/site-packages (3.10.1)
+Requirement already satisfied: pillow in ./.venv/lib/python3.11/site-packages (11.1.0)
+Requirement already satisfied: python-socketio in ./.venv/lib/python3.11/site-packages (5.12.1)
+Requirement already satisfied: requests in ./.venv/lib/python3.11/site-packages (2.32.3)
+Requirement already satisfied: tk in ./.venv/lib/python3.11/site-packages (0.1.0)
+Requirement already satisfied: contourpy>=1.0.1 in ./.venv/lib/python3.11/site-packages (from matplotlib) (1.3.1)
+Requirement already satisfied: cycler>=0.10 in ./.venv/lib/python3.11/site-packages (from matplotlib) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in ./.venv/lib/python3.11/site-packages (from matplotlib) (4.57.0)
+Requirement already satisfied: kiwisolver>=1.3.1 in ./.venv/lib/python3.11/site-packages (from matplotlib) (1.4.8)
+Requirement already satisfied: numpy>=1.23 in ./.venv/lib/python3.11/site-packages (from matplotlib) (2.2.4)
+Requirement already satisfied: packaging>=20.0 in ./.venv/lib/python3.11/site-packages (from matplotlib) (24.2)
+Requirement already satisfied: pyparsing>=2.3.1 in ./.venv/lib/python3.11/site-packages (from matplotlib) (3.2.3)
+Requirement already satisfied: python-dateutil>=2.7 in ./.venv/lib/python3.11/site-packages (from matplotlib) (2.9.0.post0)
+Requirement already satisfied: bidict>=0.21.0 in ./.venv/lib/python3.11/site-packages (from python-socketio) (0.23.1)
+Requirement already satisfied: python-engineio>=4.11.0 in ./.venv/lib/python3.11/site-packages (from python-socketio) (4.11.2)
+Requirement already satisfied: charset-normalizer<4,>=2 in ./.venv/lib/python3.11/site-packages (from requests) (3.4.1)
+Requirement already satisfied: idna<4,>=2.5 in ./.venv/lib/python3.11/site-packages (from requests) (3.10)
+Requirement already satisfied: urllib3<3,>=1.21.1 in ./.venv/lib/python3.11/site-packages (from requests) (2.3.0)
+Requirement already satisfied: certifi>=2017.4.17 in ./.venv/lib/python3.11/site-packages (from requests) (2025.1.31)
+Requirement already satisfied: six>=1.5 in ./.venv/lib/python3.11/site-packages (from python-dateutil>=2.7->matplotlib) (1.17.0)
+Requirement already satisfied: simple-websocket>=0.10.0 in ./.venv/lib/python3.11/site-packages (from python-engineio>=4.11.0->python-socketio) (1.1.0)
+Requirement already satisfied: wsproto in ./.venv/lib/python3.11/site-packages (from simple-websocket>=0.10.0->python-engineio>=4.11.0->python-socketio) (1.2.0)
+Requirement already satisfied: h11<1,>=0.9.0 in ./.venv/lib/python3.11/site-packages (from wsproto->simple-websocket>=0.10.0->python-engineio>=4.11.0->python-socketio) (0.14.0)
+Looking in indexes: https://pypi.org/simple, https://www.piwheels.org/simple
+Requirement already satisfied: flask in ./.venv/lib/python3.11/site-packages (3.1.0)
+Requirement already satisfied: flask-cors in ./.venv/lib/python3.11/site-packages (5.0.1)
+Requirement already satisfied: flask-socketio in ./.venv/lib/python3.11/site-packages (5.5.1)
+Requirement already satisfied: Werkzeug>=3.1 in ./.venv/lib/python3.11/site-packages (from flask) (3.1.3)
+Requirement already satisfied: Jinja2>=3.1.2 in ./.venv/lib/python3.11/site-packages (from flask) (3.1.6)
+Requirement already satisfied: itsdangerous>=2.2 in ./.venv/lib/python3.11/site-packages (from flask) (2.2.0)
+Requirement already satisfied: click>=8.1.3 in ./.venv/lib/python3.11/site-packages (from flask) (8.1.8)
+Requirement already satisfied: blinker>=1.9 in ./.venv/lib/python3.11/site-packages (from flask) (1.9.0)
+Requirement already satisfied: python-socketio>=5.12.0 in ./.venv/lib/python3.11/site-packages (from flask-socketio) (5.12.1)
+Requirement already satisfied: MarkupSafe>=2.0 in ./.venv/lib/python3.11/site-packages (from Jinja2>=3.1.2->flask) (3.0.2)
+Requirement already satisfied: bidict>=0.21.0 in ./.venv/lib/python3.11/site-packages (from python-socketio>=5.12.0->flask-socketio) (0.23.1)
+Requirement already satisfied: python-engineio>=4.11.0 in ./.venv/lib/python3.11/site-packages (from python-socketio>=5.12.0->flask-socketio) (4.11.2)
+Requirement already satisfied: simple-websocket>=0.10.0 in ./.venv/lib/python3.11/site-packages (from python-engineio>=4.11.0->python-socketio>=5.12.0->flask-socketio) (1.1.0)
+Requirement already satisfied: wsproto in ./.venv/lib/python3.11/site-packages (from simple-websocket>=0.10.0->python-engineio>=4.11.0->python-socketio>=5.12.0->flask-socketio) (1.2.0)
+Requirement already satisfied: h11<1,>=0.9.0 in ./.venv/lib/python3.11/site-packages (from wsproto->simple-websocket>=0.10.0->python-engineio>=4.11.0->python-socketio>=5.12.0->flask-socketio) (0.14.0)
+Installing GPIO libraries and dependencies...
+Hit:1 http://archive.raspberrypi.com/debian bookworm InRelease
+Hit:2 http://raspbian.raspberrypi.com/raspbian bookworm InRelease
+Reading package lists... Done                              
+W: http://raspbian.raspberrypi.com/raspbian/dists/bookworm/InRelease: Key is stored in legacy trusted.gpg keyring (/etc/apt/trusted.gpg), see the DEPRECATION section in apt-key(8) for details.
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+python3-gpiozero is already the newest version (2.0.1-0+rpt1).
+The following NEW packages will be installed:
+  libopenblas0 libopenblas0-pthread
+0 upgraded, 2 newly installed, 0 to remove and 208 not upgraded.
+Need to get 2,192 kB of archives.
+After this operation, 14.2 MB of additional disk space will be used.
+Get:1 http://raspbian.raspberrypi.com/raspbian bookworm/main armhf libopenblas0-pthread armhf 0.3.21+ds-4+rpi1 [2,159 kB]
+Get:2 http://raspbian.raspberrypi.com/raspbian bookworm/main armhf libopenblas0 armhf 0.3.21+ds-4+rpi1 [32.7 kB]
+Fetched 2,192 kB in 2s (1,002 kB/s)
+Selecting previously unselected package libopenblas0-pthread:armhf.
+(Reading database ... 192848 files and directories currently installed.)
+Preparing to unpack .../libopenblas0-pthread_0.3.21+ds-4+rpi1_armhf.deb ...
+Unpacking libopenblas0-pthread:armhf (0.3.21+ds-4+rpi1) ...
+Selecting previously unselected package libopenblas0:armhf.
+Preparing to unpack .../libopenblas0_0.3.21+ds-4+rpi1_armhf.deb ...
+Unpacking libopenblas0:armhf (0.3.21+ds-4+rpi1) ...
+Setting up libopenblas0-pthread:armhf (0.3.21+ds-4+rpi1) ...
+update-alternatives: using /usr/lib/arm-linux-gnueabihf/openblas-pthread/libblas.so.3 to provide /usr/lib/arm-linux-gnueabihf/libblas.so.3 (libblas.so.3-arm-linux-gnueabihf) in auto mode
+update-alternatives: using /usr/lib/arm-linux-gnueabihf/openblas-pthread/liblapack.so.3 to provide /usr/lib/arm-linux-gnueabihf/liblapack.so.3 (liblapack.so.3-arm-linux-gnueabihf) in auto mode
+update-alternatives: using /usr/lib/arm-linux-gnueabihf/openblas-pthread/libopenblas.so.0 to provide /usr/lib/arm-linux-gnueabihf/libopenblas.so.0 (libopenblas.so.0-arm-linux-gnueabihf) in auto mode
+Setting up libopenblas0:armhf (0.3.21+ds-4+rpi1) ...
+Processing triggers for libc-bin (2.36-9+rpt2+deb12u9) ...
+Looking in indexes: https://pypi.org/simple, https://www.piwheels.org/simple
+Requirement already satisfied: gpiozero in ./.venv/lib/python3.11/site-packages (2.0.1)
+Requirement already satisfied: colorzero in ./.venv/lib/python3.11/site-packages (from gpiozero) (2.0)
+Requirement already satisfied: setuptools in ./.venv/lib/python3.11/site-packages (from colorzero->gpiozero) (66.1.1)
+Dependencies installed successfully
+Enabling SPI communication on RPI...
+SPI interface is enabled and ready
+Checking GPIO access...
+WARNING: GPIO access test failed - ensure you're running with sudo
+Adding current user to gpio group for better permissions...
+You may need to log out and back in for this to take effect
+Building React frontend...
+
+up to date, audited 1499 packages in 4m
+
+273 packages are looking for funding
+  run `npm fund` for details
+
+12 vulnerabilities (4 moderate, 8 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+> vital-dashboard@0.1.0 build
+> react-scripts build
+
+node:internal/modules/cjs/loader:445
+      throw err;
+      ^
+
+Error: Cannot find module '/home/admin/CSE5911_Capstone_Pulse_Patrol/Web_Vital_Dashboard/node_modules/esutils/lib/utils.js'. Please verify that the package.json has a valid "main" entry
+    at tryPackage (node:internal/modules/cjs/loader:437:19)
+    at Module._findPath (node:internal/modules/cjs/loader:705:18)
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1120:27)
+    at Module._load (node:internal/modules/cjs/loader:975:27)
+    at Module.require (node:internal/modules/cjs/loader:1225:19)
+    at require (node:internal/modules/helpers:177:18)
+    at /home/admin/CSE5911_Capstone_Pulse_Patrol/Web_Vital_Dashboard/node_modules/static-eval/node_modules/escodegen/escodegen.js:68:15
+    at Object.<anonymous> (/home/admin/CSE5911_Capstone_Pulse_Patrol/Web_Vital_Dashboard/node_modules/static-eval/node_modules/escodegen/escodegen.js:2625:2)
+    at Module._compile (node:internal/modules/cjs/loader:1356:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1414:10) {
+  code: 'MODULE_NOT_FOUND',
+  path: '/home/admin/CSE5911_Capstone_Pulse_Patrol/Web_Vital_Dashboard/node_modules/esutils/package.json',
+  requestPath: 'esutils'
+}
+
+Node.js v18.19.0
+Starting Web Dashboard server...
+Server started with PID: 2786
+Starting NORA GUI...
+NORA GUI started with PID: 2789
+NORA system is now running!
+Press Ctrl+C to stop all processes
+Server initialized for threading.
+Starting server on http://localhost:5000
+WebSocket endpoint for variable synchronization at ws://localhost:5000
+HTTP endpoints for sensor data at http://localhost:5000/data
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Serving Flask app 'server'
+ * Debug mode: on
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.102:5000
+Press CTRL+C to quit
+ * Restarting with stat
+Matplotlib is building the font cache; this may take a moment.
+Server initialized for threading.
+Starting server on http://localhost:5000
+WebSocket endpoint for variable synchronization at ws://localhost:5000
+HTTP endpoints for sensor data at http://localhost:5000/data
+Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+ * Debugger is active!
+ * Debugger PIN: 339-619-696
+RPi.GPIO imported successfully
+lgpio imported successfully
+pigpio imported successfully
+Running on Raspberry Pi. gpiozero imported successfully.
+Initializing servo on GPIO pin 18...
+Trying LGPIOFactory...
+/home/admin/CSE5911_Capstone_Pulse_Patrol/.venv/lib/python3.11/site-packages/gpiozero/output_devices.py:1509: PWMSoftwareFallback: To reduce servo jitter, use the pigpio pin factory.See https://gpiozero.readthedocs.io/en/stable/api_output.html#servo for more info
+  warnings.warn(PWMSoftwareFallback(
+Servo initialized successfully on GPIO pin 18 using LGPIOFactory
+J5sZpcQjzrpNYiESAAAA: Sending packet OPEN data {'sid': 'J5sZpcQjzrpNYiESAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000, 'maxPayload': 1000000}
+192.168.0.102 - - [10/Apr/2025 14:40:52] "GET /socket.io/?transport=polling&EIO=4&t=1744310452.3427758 HTTP/1.1" 200 -
+websocket-client package not installed, only polling transport is available
+J5sZpcQjzrpNYiESAAAA: Received packet MESSAGE data 0{}
+Client connected: bzDx71eX-l2ghrPdAAAB
+emitting event "flow_rate_update" to bzDx71eX-l2ghrPdAAAB [/]
+J5sZpcQjzrpNYiESAAAA: Sending packet MESSAGE data 2["flow_rate_update",{"flow_rate":0}]
+emitting event "desired_vol_update" to bzDx71eX-l2ghrPdAAAB [/]
+J5sZpcQjzrpNYiESAAAA: Sending packet MESSAGE data 2["desired_vol_update",{"desired_vol":0}]
+192.168.0.102 - - [10/Apr/2025 14:40:53] "GET /socket.io/?transport=polling&EIO=4&sid=J5sZpcQjzrpNYiESAAAA&t=1744310452.868839 HTTP/1.1" 200 -
+emitting event "vol_given_update" to bzDx71eX-l2ghrPdAAAB [/]
+J5sZpcQjzrpNYiESAAAA: Sending packet MESSAGE data 2["vol_given_update",{"vol_given":0.0}]
+emitting event "procedure_state_update" to bzDx71eX-l2ghrPdAAAB [/]
+J5sZpcQjzrpNYiESAAAA: Sending packet MESSAGE data 2["procedure_state_update",{"running":false}]
+J5sZpcQjzrpNYiESAAAA: Sending packet MESSAGE data 0{"sid":"bzDx71eX-l2ghrPdAAAB"}
+192.168.0.102 - - [10/Apr/2025 14:40:53] "POST /socket.io/?transport=polling&EIO=4&sid=J5sZpcQjzrpNYiESAAAA HTTP/1.1" 200 -
+192.168.0.102 - - [10/Apr/2025 14:40:53] "GET /socket.io/?transport=polling&EIO=4&sid=J5sZpcQjzrpNYiESAAAA&t=1744310453.4539535 HTTP/1.1" 200 -
+DEBUG: Received procedure state update from server: Stopped
+DEBUG: Current state: Stopped
+DEBUG: Ignored server state update - already in that state
+Connected to server via WebSocket
+Exception in thread Thread-10 (_handle_eio_message):
+Traceback (most recent call last):
+  File "/usr/lib/python3.11/threading.py", line 1038, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.11/threading.py", line 975, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/admin/CSE5911_Capstone_Pulse_Patrol/.venv/lib/python3.11/site-packages/socketio/client.py", line 521, in _handle_eio_message
+    self._handle_connect(pkt.namespace, pkt.data)
+  File "/home/admin/CSE5911_Capstone_Pulse_Patrol/.venv/lib/python3.11/site-packages/socketio/client.py", line 373, in _handle_connect
+    self._trigger_event('connect', namespace=namespace)
+  File "/home/admin/CSE5911_Capstone_Pulse_Patrol/.venv/lib/python3.11/site-packages/socketio/client.py", line 441, in _trigger_event
+    return handler(*args)
+           ^^^^^^^^^^^^^^
+  File "/home/admin/CSE5911_Capstone_Pulse_Patrol/PI_Vital_Dashboard/NORA.py", line 162, in connect
+    root.after(0, lambda: status_label.config(text="● Connected", fg=COLORS["success"]))
+  File "/usr/lib/python3.11/tkinter/__init__.py", line 872, in after
+    name = self._register(callit)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/tkinter/__init__.py", line 1584, in _register
+    self.tk.createcommand(name, f)
+RuntimeError: main thread is not in main loop
+192.168.0.102 - - [10/Apr/2025 14:40:58] "POST /data HTTP/1.1" 200 -
+DEBUG: Procedure running: False, Vol: 0.00/0, Flow rate: 0
+DEBUG: Update flow - procedure stopped, servo idle
+J5sZpcQjzrpNYiESAAAA: Received packet MESSAGE data 2["update_vol_given",{"vol_given":0.0}]
+received event "update_vol_given" from bzDx71eX-l2ghrPdAAAB [/]
+Volume given updated via WebSocket to: 0 μL by client bzDx71eX-l2ghrPdAAAB
+192.168.0.102 - - [10/Apr/2025 14:40:58] "POST /socket.io/?transport=polling&EIO=4&sid=J5sZpcQjzrpNYiESAAAA HTTP/1.1" 200 -
+emitting event "vol_given_update" to all [/]
+192.168.0.102 - - [10/Apr/2025 14:41:06] "POST /data HTTP/1.1" 200 -
+DEBUG: Procedure running: False, Vol: 0.00/0, Flow rate: 0
+DEBUG: Update flow - procedure stopped, servo idle
+J5sZpcQjzrpNYiESAAAA: Received packet MESSAGE data 2["update_vol_given",{"vol_given":0.0}]
+received event "update_vol_given" from bzDx71eX-l2ghrPdAAAB [/]
+Volume given updated via WebSocket to: 0 μL by client bzDx71eX-l2ghrPdAAAB
+192.168.0.102 - - [10/Apr/2025 14:41:06] "POST /socket.io/?transport=polling&EIO=4&sid=J5sZpcQjzrpNYiESAAAA HTTP/1.1" 200 -
+emitting event "vol_given_update" to all [/]
+
