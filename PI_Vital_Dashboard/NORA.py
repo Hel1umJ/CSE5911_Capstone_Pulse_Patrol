@@ -97,8 +97,9 @@ FONTS = {
 GPIO Config
 """
 SERVO_PIN = 18  # GPIO pin for servo control (PWM); pin 12 or 6th pin down from top right.
-SERVO_MIN_PULSE_WIDTH = 500  # min pulse width in microseconds (0 degrees)
-SERVO_MAX_PULSE_WIDTH = 2500  # max pulse width in microseconds (180 degrees)
+# SG90 specific pulse widths - more precise for this specific model
+SERVO_MIN_PULSE_WIDTH = 500   # min pulse width in microseconds (0 degrees)
+SERVO_MAX_PULSE_WIDTH = 2400  # max pulse width in microseconds (180 degrees)
 MIN_FLOW_RATE = 0
 MAX_FLOW_RATE = 30
 MIN_DESIRED_VOL = 0
@@ -108,7 +109,12 @@ SERVO_MIN_VALUE = -1  # gpiozero servo minimum position value
 SERVO_MAX_VALUE = 1   # gpiozero servo maximum position value
 
 # Direct GPIO control for servo
-SERVO_DIRECT_ENABLED = True  # Set to True to use direct PWM control instead of gpiozero
+# Set to True to use direct PWM control instead of gpiozero
+SERVO_DIRECT_ENABLED = True
+# Servo smoothing parameters
+SERVO_SMOOTHING_ENABLED = True  # Enable smooth motion
+SERVO_SMOOTHING_FACTOR = 0.1  # Lower = smoother but slower (0.01-0.3 is good range)
+SERVO_UPDATE_RATE = 50  # Update rate in ms - higher values (lower frequency) are smoother
 
 PULSEOX_PIN_LED = 17
 
@@ -358,12 +364,31 @@ def update_vitals(root):
     """
     global t_step
     
-    #TODO: retrieve sensor information and pass it into set vitals here; return it in format below
-    #sensor_info = getSensorInfo()
+    # Get SpO2 from the MCP3008 if available
+    try:
+        from PulseOX.A2D import read_mcp3008_direct
+        _, raw_value = read_mcp3008_direct(0)
+        
+        # Convert raw value to SpO2 percentage using the simplified approach
+        if raw_value > 0:
+            # Simple mapping function as a placeholder
+            simulated_ratio = 0.5 + (0.7 * (1023 - raw_value) / 1023)
+            spo2_value = 110 - (25 * simulated_ratio)
+            
+            # Clamp to reasonable SpO2 range
+            spo2_value = max(70, min(100, int(spo2_value)))
+            print(f"SpO2 from sensor: {spo2_value}%")
+        else:
+            spo2_value = rand.randint(96, 100)  # Use random value as fallback
+    except Exception as e:
+        print(f"Error reading SpO2: {e}")
+        spo2_value = rand.randint(96, 100)  # Use random value if reading fails
+    
+    # Populate sensor info with real SpO2 and random values for other vitals
     sensor_info = {
-        "hr": rand.randint(70,80), 
-        "spo2": rand.randint(96,100), 
-        "bp": (rand.randint(70,80),rand.randint(90,100))
+        "hr": rand.randint(70, 80), 
+        "spo2": spo2_value, 
+        "bp": (rand.randint(70, 80), rand.randint(90, 100))
     }
 
     set_vitals(sensor_info) 
@@ -396,9 +421,9 @@ def update_flow():
     syringe_size = 50000  # 50000 microliters = 50 ml
     vol_per_step = syringe_size * step_size / 2  # Divide by 2 because range is -1 to 1
     
-    # For direct PWM
-    min_duty = 2.5   # 0 degrees
-    max_duty = 12.5  # 180 degrees
+    # For direct PWM - SG90 specific duty cycles
+    min_duty = 2.5   # 0 degrees - 500μs/20000μs = 2.5%
+    max_duty = 12.0  # 180 degrees - 2400μs/20000μs = 12.0%
     
     # Try to read from MCP3008 if available
     try:
@@ -428,19 +453,26 @@ def update_flow():
                         vol_increment = (flow_rate / 60.0) * 0.1  # 0.1 second interval
                         actual_vol_given += vol_increment
                         
+                        # Set position once and then stop sending pulses - this prevents jittering
                         print(f"DEBUG: Setting PWM duty cycle to {current_duty:.2f}% for flow rate {flow_rate}")
                         pwm.ChangeDutyCycle(current_duty)
+                        time.sleep(0.1)  # Give time for servo to respond
+                        pwm.ChangeDutyCycle(0)  # Stop sending pulses, prevents jittering
                         print(f"DEBUG: New actual volume: {actual_vol_given:.2f}/{vol_given:.2f}")
                     else:
                         # Already dispensed target volume
                         print(f"DEBUG: Target volume reached: {actual_vol_given:.2f}/{vol_given:.2f}")
                         # Return to idle position
-                        pwm.ChangeDutyCycle(7.5)  # Middle position
+                        pwm.ChangeDutyCycle(7.25)  # Middle position for SG90
+                        time.sleep(0.1)  # Give time for servo to respond
+                        pwm.ChangeDutyCycle(0)  # Stop sending pulses to prevent jittering
                 else:
                     # Procedure stopped or flow rate is 0
                     print(f"DEBUG: Update flow - procedure stopped or flow rate 0, servo idle")
                     # Return to idle position
-                    pwm.ChangeDutyCycle(7.5)  # Middle position
+                    pwm.ChangeDutyCycle(7.25)  # Middle position for SG90
+                    time.sleep(0.1)  # Give time for servo to respond
+                    pwm.ChangeDutyCycle(0)  # Stop sending pulses to prevent jittering
                 
                 # Schedule next update
                 root.after(100, update_flow)  # Update 10 times per second
@@ -1014,37 +1046,50 @@ def initialize_servo():
             GPIO.setup(SERVO_PIN, GPIO.OUT)
             
             # Initialize PWM at 50Hz (standard for servos)
+            # SG90 works best at 50Hz (20ms period)
+            # Some servos have less jitter at different frequencies, but SG90 is designed for 50Hz
             pwm = GPIO.PWM(SERVO_PIN, 50)
             
             # Calculate duty cycle for initial position (typically 2-12%)
             # For a standard servo at 50Hz, 2.5% duty cycle is 0°, 12.5% is 180°
             # Start at middle position
-            initial_duty_cycle = 7.5  # Middle position (90°)
+            initial_duty_cycle = 7.25  # Middle position for SG90 (90°)
             
-            # Start PWM
+            # Start PWM and initialize servo
             pwm.start(initial_duty_cycle)
+            time.sleep(1.0)  # Allow time for servo to position at startup
+            pwm.ChangeDutyCycle(0)  # Stop pulses to prevent jittering during initialization
             print(f"Direct PWM servo control initialized on GPIO pin {SERVO_PIN}")
             
             # Test servo movement
             print("Testing servo movement with direct PWM...")
             try:
-                # Test different positions
+                # Test different positions with anti-jitter pattern
+                # SG90 specific values for 0°, 90°, and 180°
                 print("Moving servo to 2.5% (0°)")
                 pwm.ChangeDutyCycle(2.5)  # Move to 0°
-                time.sleep(1)
+                time.sleep(0.5)
+                pwm.ChangeDutyCycle(0)    # Stop pulses to prevent jittering
+                time.sleep(0.5)
                 
-                print("Moving servo to 7.5% (90°)")
-                pwm.ChangeDutyCycle(7.5)  # Move to 90°
-                time.sleep(1)
+                print("Moving servo to 7.25% (90°)")
+                pwm.ChangeDutyCycle(7.25)  # Move to 90° (SG90 often needs slightly less than 7.5)
+                time.sleep(0.5)
+                pwm.ChangeDutyCycle(0)    # Stop pulses to prevent jittering
+                time.sleep(0.5)
                 
-                print("Moving servo to 12.5% (180°)")
-                pwm.ChangeDutyCycle(12.5)  # Move to 180°
-                time.sleep(1)
+                print("Moving servo to 12.0% (180°)")
+                pwm.ChangeDutyCycle(12.0)  # Move to 180° (SG90 often needs 12.0 instead of 12.5)
+                time.sleep(0.5)
+                pwm.ChangeDutyCycle(0)     # Stop pulses to prevent jittering
+                time.sleep(0.5)
                 
                 # Return to initial position
-                print("Moving servo back to 7.5% (90°)")
-                pwm.ChangeDutyCycle(7.5)
-                time.sleep(0.5)
+                print("Moving servo back to 7.25% (90°)")
+                pwm.ChangeDutyCycle(7.25)   # Middle position for SG90
+                time.sleep(0.3)
+                pwm.ChangeDutyCycle(0)     # Stop pulses to prevent jittering
+                time.sleep(0.2)
                 
                 print("Direct PWM servo test complete!")
                 
