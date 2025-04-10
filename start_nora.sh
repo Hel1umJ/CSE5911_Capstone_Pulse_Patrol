@@ -30,8 +30,15 @@ pip install flask flask-cors flask-socketio
 if [ "$IS_RASPBERRY_PI" = true ]; then
   echo "Installing GPIO libraries and dependencies..."
   sudo apt-get update -y
-  sudo apt-get install -y python3-gpiozero libopenblas0
-  pip install gpiozero
+  # Install system packages
+  sudo apt-get install -y python3-gpiozero libopenblas0 python3-spidev python3-pigpio
+  # Enable SPI interface if not already enabled
+  sudo raspi-config nonint do_spi 0
+  # Start pigpio daemon
+  sudo systemctl enable pigpiod
+  sudo systemctl start pigpiod
+  # Install Python packages
+  pip install gpiozero spidev pigpio
 fi
 
 echo "Dependencies installed successfully"
