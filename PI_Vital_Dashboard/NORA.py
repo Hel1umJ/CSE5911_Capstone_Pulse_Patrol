@@ -15,9 +15,11 @@ import platform
 
 is_raspberry_pi = platform.system() == "Linux" and platform.machine().startswith(("arm", "aarch"))
 servo = None
+pwm = None  # For direct PWM control
 
 if is_raspberry_pi:
     try:
+        # Import GPIO libraries
         from gpiozero import Servo, PWMLED, MCP3008
         from gpiozero.pins.rpigpio import RPiGPIOFactory
         from gpiozero.pins.lgpio import LGPIOFactory
@@ -26,8 +28,10 @@ if is_raspberry_pi:
         
         # Import backend libraries directly to ensure they're available
         try:
-            import RPi.GPIO
-            print("RPi.GPIO imported successfully")
+            import RPi.GPIO as GPIO
+            GPIO.setwarnings(False)  # Disable warnings
+            GPIO.setmode(GPIO.BCM)  # Use BCM pin numbering
+            print("RPi.GPIO imported successfully and configured")
         except ImportError:
             print("RPi.GPIO not available")
             
@@ -43,7 +47,14 @@ if is_raspberry_pi:
         except ImportError:
             print("pigpio not available")
             
-        print("Running on Raspberry Pi. gpiozero imported successfully.")
+        # Import direct SPI for MCP3008
+        try:
+            import spidev
+            print("spidev imported successfully")
+        except ImportError:
+            print("spidev not available")
+            
+        print("Running on Raspberry Pi. GPIO libraries imported successfully.")
     except ImportError as e:
         print(f"Warning: GPIO import error: {e}")
         print("Servo control will be simulated.")
@@ -95,6 +106,9 @@ MAX_DESIRED_VOL = 50
 # Values for servo control with gpiozero
 SERVO_MIN_VALUE = -1  # gpiozero servo minimum position value
 SERVO_MAX_VALUE = 1   # gpiozero servo maximum position value
+
+# Direct GPIO control for servo
+SERVO_DIRECT_ENABLED = True  # Set to True to use direct PWM control instead of gpiozero
 
 PULSEOX_PIN_LED = 17
 
@@ -371,17 +385,21 @@ def update_vitals(root):
 def update_flow():
     """
     Updates the hardware with the current flow rate
-    
-    Maps the flow rate (0-30) to servo position (-1 to 1 in gpiozero)
     """
-    global servo
+    global servo, pwm
     global actual_vol_given
     global vol_given
     global SERVO_MAX_VALUE
-    step_size = 0.01 # 2000 total steps
-    syringe_size = 50000 # 50000 microliters = 50 ml
-    vol_per_step = syringe_size * step_size / 2 # Divide by 2 because range is -1 to 1
-
+    
+    # Constants
+    step_size = 0.01  # 2000 total steps for gpiozero
+    syringe_size = 50000  # 50000 microliters = 50 ml
+    vol_per_step = syringe_size * step_size / 2  # Divide by 2 because range is -1 to 1
+    
+    # For direct PWM
+    min_duty = 2.5   # 0 degrees
+    max_duty = 12.5  # 180 degrees
+    
     # Try to read from MCP3008 if available
     try:
         from PulseOX.A2D import read_mcp3008_direct
@@ -389,42 +407,99 @@ def update_flow():
         print(f"DEBUG: MCP3008 raw reading: {raw_value}")
     except Exception as e:
         print(f"DEBUG: MCP3008 read error: {e}")
-
-    # Map flow rate from (0-30) to servo position range (-1 to 1)
-    if is_raspberry_pi and servo is not None:
-        try:
-            # Calculate servo position based on flow rate
-            if procedure_running and flow_rate > 0:
-                # Debug the current position and calculation
-                print(f"DEBUG: Current servo value: {servo.value}, Target vol: {vol_given}, Actual vol: {actual_vol_given}")
-                
-                # Move servo more aggressively based on flow rate
-                # Higher flow rate = faster servo movement
-                current_step_size = step_size * (flow_rate / 10)  # Scale step size based on flow rate
-                
-                if actual_vol_given < vol_given:
-                    # Move servo toward max position (1)
-                    new_position = servo.value - current_step_size
-                    # Ensure we don't go beyond maximum
-                    if new_position < SERVO_MIN_VALUE:
-                        new_position = SERVO_MIN_VALUE
+    
+    if is_raspberry_pi:
+        # Using direct PWM control
+        if SERVO_DIRECT_ENABLED and pwm is not None:
+            try:
+                if procedure_running and flow_rate > 0:
+                    # Debug info
+                    print(f"DEBUG: Flow Rate: {flow_rate}, Target vol: {vol_given}, Actual vol: {actual_vol_given}")
+                    
+                    if actual_vol_given < vol_given:
+                        # Calculate duty cycle based on flow rate
+                        # Map flow rate (0-30) to duty cycle (min_duty to max_duty)
+                        # At flow rate = 0, we want min movement
+                        # At MAX_FLOW_RATE, we want max movement
+                        movement_percent = flow_rate / MAX_FLOW_RATE
+                        current_duty = min_duty + movement_percent * (max_duty - min_duty)
                         
-                    print(f"DEBUG: Moving servo to {new_position} (step size: {current_step_size})")
-                    servo.value = new_position
-                    actual_vol_given = actual_vol_given + (vol_per_step * (flow_rate / 10))
-                    print(f"DEBUG: New actual volume: {actual_vol_given}")
-            else:
-                # Debug log for when procedure is stopped
-                print(f"DEBUG: Update flow - procedure stopped, servo idle")
-
-            root.after(100, update_flow)  # Update more frequently (10 times per second)
-
-        except Exception as e:
-            print(f"Error controlling servo: {e}")
-            return False
+                        # Volume update
+                        vol_increment = (flow_rate / 60.0) * 0.1  # 0.1 second interval
+                        actual_vol_given += vol_increment
+                        
+                        print(f"DEBUG: Setting PWM duty cycle to {current_duty:.2f}% for flow rate {flow_rate}")
+                        pwm.ChangeDutyCycle(current_duty)
+                        print(f"DEBUG: New actual volume: {actual_vol_given:.2f}/{vol_given:.2f}")
+                    else:
+                        # Already dispensed target volume
+                        print(f"DEBUG: Target volume reached: {actual_vol_given:.2f}/{vol_given:.2f}")
+                        # Return to idle position
+                        pwm.ChangeDutyCycle(7.5)  # Middle position
+                else:
+                    # Procedure stopped or flow rate is 0
+                    print(f"DEBUG: Update flow - procedure stopped or flow rate 0, servo idle")
+                    # Return to idle position
+                    pwm.ChangeDutyCycle(7.5)  # Middle position
+                
+                # Schedule next update
+                root.after(100, update_flow)  # Update 10 times per second
+                
+            except Exception as e:
+                print(f"Error controlling servo with direct PWM: {e}")
+                return False
+                
+        # Using gpiozero Servo
+        elif servo is not None:
+            try:
+                if procedure_running and flow_rate > 0:
+                    # Debug the current position and calculation
+                    print(f"DEBUG: Current servo value: {servo.value}, Target vol: {vol_given}, Actual vol: {actual_vol_given}")
+                    
+                    # Move servo more aggressively based on flow rate
+                    current_step_size = step_size * (flow_rate / 10)  # Scale step size based on flow rate
+                    
+                    if actual_vol_given < vol_given:
+                        # Move servo toward min position (-1)
+                        new_position = servo.value - current_step_size
+                        
+                        # Ensure we don't go beyond limits
+                        if new_position < SERVO_MIN_VALUE:
+                            new_position = SERVO_MIN_VALUE
+                        
+                        print(f"DEBUG: Moving servo to {new_position} (step size: {current_step_size})")
+                        servo.value = new_position
+                        
+                        # Update dispensed volume
+                        vol_increment = (flow_rate / 60.0) * 0.1  # 0.1 second interval
+                        actual_vol_given += vol_increment
+                        print(f"DEBUG: New actual volume: {actual_vol_given:.2f}")
+                    else:
+                        # Already dispensed target volume
+                        print(f"DEBUG: Target volume reached: {actual_vol_given:.2f}/{vol_given:.2f}")
+                else:
+                    # Debug log for when procedure is stopped
+                    print(f"DEBUG: Update flow - procedure stopped, servo idle")
+                
+                # Schedule next update
+                root.after(100, update_flow)  # Update 10 times per second
+            
+            except Exception as e:
+                print(f"Error controlling servo with gpiozero: {e}")
+                return False
+        else:
+            # No servo control method available
+            print("No servo control method available - running in simulation mode")
+            root.after(1000, update_flow)
     else:
-        # Not running on Pi or servo not initialized
+        # Not running on Pi - simulation mode
         print(f"Servo flow rate set to {flow_rate} μL/min (simulation mode)")
+        if procedure_running and flow_rate > 0:
+            # Simulate volume dispensing in simulation mode
+            vol_increment = (flow_rate / 60.0)  # Per second
+            actual_vol_given += vol_increment
+            print(f"DEBUG: Simulated volume: {actual_vol_given:.2f}/{vol_given:.2f}")
+        
         root.after(1000, update_flow)
     
     return True
@@ -920,98 +995,180 @@ def create_gui():
 
 
 def initialize_servo():
-    """Initialize and configure the servo motor using gpiozero"""
-    global servo, is_raspberry_pi
+    """Initialize and configure the servo motor"""
+    global servo, pwm, is_raspberry_pi
     
-    if is_raspberry_pi:
-        print(f"Initializing servo on GPIO pin {SERVO_PIN}...")
-        
-        # Try each pin factory in succession, starting with the most modern ones
-        factories = [
-            ('LGPIOFactory', LGPIOFactory),
-            ('RPiGPIOFactory', RPiGPIOFactory),
-            ('PiGPIOFactory', PiGPIOFactory),
-            ('NativeFactory', NativeFactory)
-        ]
-        
-        for factory_name, factory_class in factories:
+    if not is_raspberry_pi:
+        print("Running in simulation mode - servo initialization skipped")
+        return True
+    
+    print(f"Initializing servo on GPIO pin {SERVO_PIN}...")
+    
+    # Try direct PWM control with RPi.GPIO first (more reliable for servos)
+    if SERVO_DIRECT_ENABLED:
+        try:
+            import RPi.GPIO as GPIO
+            
+            # Setup GPIO
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(SERVO_PIN, GPIO.OUT)
+            
+            # Initialize PWM at 50Hz (standard for servos)
+            pwm = GPIO.PWM(SERVO_PIN, 50)
+            
+            # Calculate duty cycle for initial position (typically 2-12%)
+            # For a standard servo at 50Hz, 2.5% duty cycle is 0°, 12.5% is 180°
+            # Start at middle position
+            initial_duty_cycle = 7.5  # Middle position (90°)
+            
+            # Start PWM
+            pwm.start(initial_duty_cycle)
+            print(f"Direct PWM servo control initialized on GPIO pin {SERVO_PIN}")
+            
+            # Test servo movement
+            print("Testing servo movement with direct PWM...")
             try:
-                print(f"Trying {factory_name}...")
-                pin_factory = factory_class()
+                # Test different positions
+                print("Moving servo to 2.5% (0°)")
+                pwm.ChangeDutyCycle(2.5)  # Move to 0°
+                time.sleep(1)
                 
-                # Initialize servo with explicit pin factory and custom min/max pulse width
-                servo = Servo(
-                    SERVO_PIN,
-                    pin_factory=pin_factory,
-                    min_pulse_width=SERVO_MIN_PULSE_WIDTH/1000000,  # Convert to seconds
-                    max_pulse_width=SERVO_MAX_PULSE_WIDTH/1000000   # Convert to seconds
-                )
+                print("Moving servo to 7.5% (90°)")
+                pwm.ChangeDutyCycle(7.5)  # Move to 90°
+                time.sleep(1)
                 
-                # Set initial position to minimum (corresponds to 0 flow rate)
-                servo.value = SERVO_MAX_VALUE
-                print(f"Servo initialized successfully on GPIO pin {SERVO_PIN} using {factory_name}")
+                print("Moving servo to 12.5% (180°)")
+                pwm.ChangeDutyCycle(12.5)  # Move to 180°
+                time.sleep(1)
                 
-                # Test servo movement
-                print("Testing servo movement...")
+                # Return to initial position
+                print("Moving servo back to 7.5% (90°)")
+                pwm.ChangeDutyCycle(7.5)
+                time.sleep(0.5)
+                
+                print("Direct PWM servo test complete!")
+                
+                # Read MCP3008 for testing
                 try:
-                    # Move to different positions to confirm servo is working
-                    print("Moving servo to 0.0")
-                    servo.value = 0.0
-                    time.sleep(0.5)
-                    print("Moving servo to -0.5")
-                    servo.value = -0.5
-                    time.sleep(0.5)
-                    print("Moving servo to 0.5")
-                    servo.value = 0.5
-                    time.sleep(0.5)
-                    # Return to initial position
-                    print("Moving servo back to max")
-                    servo.value = SERVO_MAX_VALUE
-                    print("Servo test complete!")
+                    from PulseOX.A2D import read_mcp3008_direct
+                    _, raw_value = read_mcp3008_direct(0)
+                    print(f"MCP3008 test reading: {raw_value}")
                 except Exception as e:
-                    print(f"Warning: Servo test movement failed: {e}")
-                
-                # Also try to initialize MCP3008 for testing
-                try:
-                    from PulseOX.A2D import initialize_mcp3008, read_mcp3008_direct
-                    adc = initialize_mcp3008(channel=0)
-                    if adc:
-                        _, raw_value = read_mcp3008_direct(0)
-                        print(f"MCP3008 test reading: {raw_value}")
-                except Exception as e:
-                    print(f"MCP3008 initialization failed: {e}")
+                    print(f"MCP3008 reading failed: {e}")
                 
                 return True
             except Exception as e:
-                print(f"Failed to initialize with {factory_name}: {e}")
-        
-        # If we got here, all attempts failed
-        print("\nServo initialization failed with all pin factories!")
-        print("Possible solutions:")
-        print("1. Ensure you have GPIO libraries installed:")
-        print("   sudo apt-get install python3-lgpio python3-rpi.gpio")
-        print("   sudo pip install RPi.GPIO lgpio")
-        print("2. Try running with sudo: sudo python NORA.py")
-        print("3. Verify GPIO permissions (run sudo usermod -a -G gpio $USER)")
-        print("4. Continuing in simulation mode...")
-        
-        # Fallback to simulation mode if initialization fails
-        is_raspberry_pi = False
-        return False
-    else:
-        print("Running in simulation mode - servo initialization skipped")
-        return True
+                print(f"Warning: Direct PWM servo test failed: {e}")
+                # Continue to try gpiozero as a fallback
+        except Exception as e:
+            print(f"Failed to initialize direct PWM control: {e}")
+            print("Falling back to gpiozero servo control")
+    
+    # If direct PWM failed or is disabled, try gpiozero
+    # Try each pin factory in succession
+    factories = [
+        ('LGPIOFactory', LGPIOFactory),
+        ('RPiGPIOFactory', RPiGPIOFactory),
+        ('PiGPIOFactory', PiGPIOFactory),
+        ('NativeFactory', NativeFactory)
+    ]
+    
+    for factory_name, factory_class in factories:
+        try:
+            print(f"Trying gpiozero with {factory_name}...")
+            pin_factory = factory_class()
+            
+            # Initialize servo with explicit pin factory and custom min/max pulse width
+            servo = Servo(
+                SERVO_PIN,
+                pin_factory=pin_factory,
+                min_pulse_width=SERVO_MIN_PULSE_WIDTH/1000000,  # Convert to seconds
+                max_pulse_width=SERVO_MAX_PULSE_WIDTH/1000000   # Convert to seconds
+            )
+            
+            # Set initial position to minimum (corresponds to 0 flow rate)
+            servo.value = SERVO_MAX_VALUE
+            print(f"Servo initialized successfully on GPIO pin {SERVO_PIN} using {factory_name}")
+            
+            # Test servo movement
+            print("Testing servo movement...")
+            try:
+                # Move to different positions to confirm servo is working
+                print("Moving servo to 0.0")
+                servo.value = 0.0
+                time.sleep(0.5)
+                print("Moving servo to -0.5")
+                servo.value = -0.5
+                time.sleep(0.5)
+                print("Moving servo to 0.5")
+                servo.value = 0.5
+                time.sleep(0.5)
+                # Return to initial position
+                print("Moving servo back to max")
+                servo.value = SERVO_MAX_VALUE
+                print("Servo test complete!")
+            except Exception as e:
+                print(f"Warning: Servo test movement failed: {e}")
+            
+            # Read MCP3008 for testing
+            try:
+                from PulseOX.A2D import read_mcp3008_direct
+                _, raw_value = read_mcp3008_direct(0)
+                print(f"MCP3008 test reading: {raw_value}")
+            except Exception as e:
+                print(f"MCP3008 reading failed: {e}")
+            
+            return True
+        except Exception as e:
+            print(f"Failed to initialize with {factory_name}: {e}")
+    
+    # If we got here, all attempts failed
+    print("\nServo initialization failed with all methods!")
+    print("Possible solutions:")
+    print("1. Ensure you have GPIO libraries installed:")
+    print("   sudo apt-get install python3-lgpio python3-rpi.gpio")
+    print("   sudo pip install RPi.GPIO lgpio")
+    print("2. Try running with sudo: sudo python NORA.py")
+    print("3. Verify GPIO permissions (run sudo usermod -a -G gpio $USER)")
+    print("4. Check servo wiring - power, ground, signal on correct pins")
+    print("5. Continuing in simulation mode...")
+    
+    # Fallback to simulation mode if initialization fails
+    is_raspberry_pi = False
+    return False
 
 def cleanup_servo():
     """Clean up servo resources"""
-    global servo
+    global servo, pwm
     
-    if is_raspberry_pi and servo is not None:
+    if is_raspberry_pi:
+        # Clean up direct PWM if used
+        if SERVO_DIRECT_ENABLED and pwm is not None:
+            try:
+                # Stop PWM
+                pwm.stop()
+                # Clean up GPIO
+                import RPi.GPIO as GPIO
+                GPIO.cleanup(SERVO_PIN)
+                print("Direct PWM servo resources cleaned up")
+            except Exception as e:
+                print(f"Error cleaning up direct PWM: {e}")
+        
+        # Clean up gpiozero if used
+        elif servo is not None:
+            try:
+                servo.detach()
+                print("Gpiozero servo resources cleaned up")
+            except Exception as e:
+                print(f"Error cleaning up gpiozero servo: {e}")
+                
+        # Clean up any remaining GPIO resources
         try:
-            servo.detach()
-            print("Servo resources cleaned up")
-        except Exception as e:
-            print(f"Error cleaning up servo: {e}")
+            import RPi.GPIO as GPIO
+            GPIO.cleanup()
+            print("All GPIO resources cleaned up")
+        except:
+            pass
 
 if __name__ == "__main__":
     # Initialize servo motor
