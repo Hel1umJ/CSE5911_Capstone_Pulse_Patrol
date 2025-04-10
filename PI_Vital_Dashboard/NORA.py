@@ -271,7 +271,15 @@ def try_reconnect():
         except Exception as e:
             print(f"Failed to reconnect: {e}")
             # Schedule another attempt
-            threading.Timer(5.0, try_reconnect).start()
+            threading.Timer(5.0, reconnect_thread).start()
+
+def reconnect_thread():
+    global reconnect_happening
+    try:
+        sio.connect(SOCKET_URL)
+        reconnect_happening = False
+    except Exception as e:
+        threading.Timer(5.0, reconnect_thread).start()
 
 def connect_to_socket():
     """Connect to the WebSocket server"""
