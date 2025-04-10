@@ -26,11 +26,11 @@ pip install matplotlib pillow python-socketio requests tk
 # server.py dependencies
 pip install flask flask-cors flask-socketio
 
-# Install GPIO libraries for Raspberry Pi
+# Install GPIO libraries and other required dependencies for Raspberry Pi
 if [ "$IS_RASPBERRY_PI" = true ]; then
-  echo "Installing GPIO libraries..."
+  echo "Installing GPIO libraries and dependencies..."
   sudo apt-get update -y
-  sudo apt-get install -y python3-gpiozero
+  sudo apt-get install -y python3-gpiozero libopenblas0
   pip install gpiozero
 fi
 
