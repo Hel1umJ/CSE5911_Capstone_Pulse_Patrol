@@ -31,29 +31,43 @@ if [ "$IS_RASPBERRY_PI" = true ]; then
   echo "Installing GPIO libraries and dependencies..."
   sudo apt-get update -y
   # Install system packages
-  sudo apt-get install -y python3-gpiozero libopenblas0 python3-spidev python3-pigpio
-  # Enable SPI interface if not already enabled
+  sudo apt-get install -y python3-gpiozero libopenblas0 python3-pigpio python3-i2c-tools
+  # Enable SPI and I2C interfaces if not already enabled
   sudo raspi-config nonint do_spi 0
+  sudo raspi-config nonint do_i2c 0
   # Start pigpio daemon
   sudo systemctl enable pigpiod
   sudo systemctl start pigpiod
   # Install Python packages
-  pip install gpiozero spidev pigpio
+  pip install gpiozero pigpio
+  # Install ADS1015 ADC library for CircuitPython
+  pip install adafruit-circuitpython-ads1x15
 fi
 
 echo "Dependencies installed successfully"
 
 
 if [ "$IS_RASPBERRY_PI" = true ]; then
-  # Enable SPI communication on RPI:
-  echo "Enabling SPI communication on RPI..."
-  sudo raspi-config nonint do_spi 0 
+  # Enable SPI and I2C communication on RPI:
+  echo "Enabling SPI and I2C communication on RPI..."
+  sudo raspi-config nonint do_spi 0
+  sudo raspi-config nonint do_i2c 0
   
   # Check if SPI is enabled correctly
   if [ -e /dev/spidev0.0 ] || [ -e /dev/spidev0.1 ]; then
     echo "SPI interface is enabled and ready"
   else
     echo "WARNING: SPI interface not detected. Please reboot and try again."
+  fi
+  
+  # Check if I2C is enabled correctly
+  if [ -e /dev/i2c-1 ]; then
+    echo "I2C interface is enabled and ready"
+    # Check for connected I2C devices
+    echo "Checking for connected I2C devices:"
+    i2cdetect -y 1
+  else
+    echo "WARNING: I2C interface not detected. Please reboot and try again."
   fi
 fi
 
