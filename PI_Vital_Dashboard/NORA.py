@@ -20,7 +20,7 @@ pwm = None  # For direct PWM control
 if is_raspberry_pi:
     try:
         # Import GPIO libraries
-        from gpiozero import Servo, PWMLED, MCP3008
+        from gpiozero import Servo, PWMLED
         from gpiozero.pins.rpigpio import RPiGPIOFactory
         from gpiozero.pins.lgpio import LGPIOFactory
         from gpiozero.pins.pigpio import PiGPIOFactory
@@ -47,12 +47,16 @@ if is_raspberry_pi:
         except ImportError:
             print("pigpio not available")
             
-        # Import direct SPI for MCP3008
+        # Import I2C libraries for ADS1015 ADC
         try:
-            import spidev
-            print("spidev imported successfully")
-        except ImportError:
-            print("spidev not available")
+            import board
+            import busio
+            import adafruit_ads1x15.ads1015 as ADS
+            from adafruit_ads1x15.analog_in import AnalogIn
+            print("ADS1015 libraries imported successfully")
+        except ImportError as e:
+            print(f"ADS1015 import error: {e}")
+            print("To install required libraries: sudo pip3 install adafruit-circuitpython-ads1x15")
             
         print("Running on Raspberry Pi. GPIO libraries imported successfully.")
     except ImportError as e:
@@ -62,7 +66,119 @@ if is_raspberry_pi:
 else:
     print("Not running on Raspberry Pi. Servo control will be simulated.")
 
-#TODO: Retrieve sensor data
+# Global variables for ADC and PulseOx
+i2c = None
+ads = None
+adc_channel = None
+pulseox_led = None
+
+def initialize_i2c_adc():
+    """Initialize I2C and ADS1015 ADC"""
+    global i2c, ads, adc_channel
+    
+    if not is_raspberry_pi:
+        print("Simulating ADS1015 ADC in non-Raspberry Pi environment")
+        return False
+    
+    try:
+        print("Initializing I2C and ADS1015 ADC...")
+        # Create the I2C bus
+        i2c = busio.I2C(board.SCL, board.SDA)
+        
+        # Create the ADS object
+        ads = ADS.ADS1015(i2c)
+        
+        # Configure ADC settings
+        ads.gain = 1  # Set gain (options: 2/3, 1, 2, 4, 8, 16)
+        ads.data_rate = 1600  # Set data rate (options: 128, 250, 490, 920, 1600, 2400, 3300)
+        
+        # Create analog input channel 0
+        adc_channel = AnalogIn(ads, ADS.P0)
+        
+        print("ADS1015 ADC initialized successfully")
+        return True
+    except Exception as e:
+        print(f"Failed to initialize ADS1015 ADC: {e}")
+        return False
+
+def initialize_pulseox_led():
+    """Initialize PulseOx LED control"""
+    global pulseox_led
+    
+    if not is_raspberry_pi:
+        print("Simulating PulseOx LED in non-Raspberry Pi environment")
+        return False
+    
+    try:
+        print(f"Initializing PulseOx LED on GPIO {PULSEOX_PIN_LED}...")
+        
+        # Configure GPIO pin for LED control
+        GPIO.setup(PULSEOX_PIN_LED, GPIO.OUT)
+        GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)  # Start with LED off
+        
+        print("PulseOx LED initialized successfully")
+        return True
+    except Exception as e:
+        print(f"Failed to initialize PulseOx LED: {e}")
+        return False
+
+def read_pulseox_with_ads1015():
+    """Read PulseOx sensor data using ADS1015 ADC with RED/IR LED toggling"""
+    global adc_channel, pulseox_led
+    
+    if not is_raspberry_pi or adc_channel is None:
+        # Return random SpO2 value in simulation mode
+        return rand.randint(96, 100)
+    
+    try:
+        # Storage for RED and IR readings
+        red_values = []
+        ir_values = []
+        
+        # Take multiple samples for better accuracy
+        for _ in range(10):
+            # Turn on LED (RED measurement)
+            GPIO.output(PULSEOX_PIN_LED, GPIO.HIGH)
+            time.sleep(0.05)  # Wait for signal to stabilize
+            red_value = adc_channel.value
+            red_values.append(red_value)
+            
+            # Turn off LED (IR measurement)
+            GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
+            time.sleep(0.05)  # Wait for signal to stabilize
+            ir_value = adc_channel.value
+            ir_values.append(ir_value)
+        
+        # Calculate average values
+        avg_red = sum(red_values) / len(red_values)
+        avg_ir = sum(ir_values) / len(ir_values)
+        
+        # Calculate min and max for RED
+        min_red = min(red_values)
+        max_red = max(red_values)
+        
+        # Calculate min and max for IR
+        min_ir = min(ir_values)
+        max_ir = max(ir_values)
+        
+        # Calculate R value similar to Arduino implementation
+        if avg_red > 0 and avg_ir > 0 and (max_red - min_red) > 0 and (max_ir - min_ir) > 0:
+            r_value = ((max_red - min_red) / avg_red) / ((max_ir - min_ir) / avg_ir)
+            
+            # Calculate SpO2 using the same formula as in the Arduino code
+            spo2_value = 110 - (25 * r_value)
+            
+            # Clamp to reasonable SpO2 range
+            spo2_value = max(70, min(100, int(spo2_value)))
+            
+            print(f"SpO2 from ADS1015: {spo2_value}% (R={r_value:.3f})")
+            return spo2_value
+        else:
+            print("Invalid sensor readings, using fallback value")
+            return rand.randint(96, 100)
+    except Exception as e:
+        print(f"Error reading PulseOx sensor: {e}")
+        return rand.randint(96, 100)  # Return random value on error
 
 """
 Constants & Data
@@ -96,7 +212,7 @@ FONTS = {
 """
 GPIO Config
 """
-SERVO_PIN = 18  # GPIO pin for servo control (PWM); pin 12 or 6th pin down from top right.
+SERVO_PIN = 14  # GPIO pin for servo control (PWM); physical pin 8
 # SG90 specific pulse widths - more precise for this specific model
 SERVO_MIN_PULSE_WIDTH = 500   # min pulse width in microseconds (0 degrees)
 SERVO_MAX_PULSE_WIDTH = 2400  # max pulse width in microseconds (180 degrees)
@@ -104,6 +220,7 @@ MIN_FLOW_RATE = 0
 MAX_FLOW_RATE = 30
 MIN_DESIRED_VOL = 0
 MAX_DESIRED_VOL = 50
+
 # Values for servo control with gpiozero
 SERVO_MIN_VALUE = -1  # gpiozero servo minimum position value
 SERVO_MAX_VALUE = 1   # gpiozero servo maximum position value
@@ -116,12 +233,13 @@ SERVO_SMOOTHING_ENABLED = True  # Enable smooth motion
 SERVO_SMOOTHING_FACTOR = 0.1  # Lower = smoother but slower (0.01-0.3 is good range)
 SERVO_UPDATE_RATE = 50  # Update rate in ms - higher values (lower frequency) are smoother
 
-PULSEOX_PIN_LED = 17
+# New hardware pin configuration
+PULSEOX_PIN_LED = 21  # GPIO pin for PulseOx LED control; physical pin 40
 
-PULSEOX_SPI_MOSI = 10
-PULSEOX_SPI_MISO = 9
-PULSEOX_SPI_SCLK = 11
-PULSEOX_SPI_CE0 = 8   # Data channel select pin
+# I2C pins for ADS1015 ADC (used via the QWIIC shim)
+# These are the default I2C pins on Raspberry Pi
+I2C_SDA_PIN = 2  # Physical pin 3
+I2C_SCL_PIN = 3  # Physical pin 5
 
 
 UPDATE_INTERVAL = 1000 #in ms
@@ -364,22 +482,11 @@ def update_vitals(root):
     """
     global t_step
     
-    # Get SpO2 from the MCP3008 if available
+    # Get SpO2 using the ADS1015 ADC
     try:
-        from PulseOX.A2D import read_mcp3008_direct
-        _, raw_value = read_mcp3008_direct(0)
-        
-        # Convert raw value to SpO2 percentage using the simplified approach
-        if raw_value > 0:
-            # Simple mapping function as a placeholder
-            simulated_ratio = 0.5 + (0.7 * (1023 - raw_value) / 1023)
-            spo2_value = 110 - (25 * simulated_ratio)
-            
-            # Clamp to reasonable SpO2 range
-            spo2_value = max(70, min(100, int(spo2_value)))
-            print(f"SpO2 from sensor: {spo2_value}%")
-        else:
-            spo2_value = rand.randint(96, 100)  # Use random value as fallback
+        # Use our new function to read PulseOx data
+        spo2_value = read_pulseox_with_ads1015()
+        print(f"SpO2 from sensor: {spo2_value}%")
     except Exception as e:
         print(f"Error reading SpO2: {e}")
         spo2_value = rand.randint(96, 100)  # Use random value if reading fails
@@ -536,7 +643,7 @@ def update_servo_position():
 def update_flow():
     """
     Updates values based on flow rate - now separated from servo control
-    This function primarily monitors status and checks MCP3008 readings
+    This function primarily monitors status and provides status updates
     """
     global servo, pwm
     global actual_vol_given
@@ -544,14 +651,6 @@ def update_flow():
     global SERVO_MAX_VALUE
     global desired_vol
     global continuous_movement, servo_target_position, servo_current_position
-    
-    # Try to read from MCP3008 if available (just for monitoring)
-    try:
-        from PulseOX.A2D import read_mcp3008_direct
-        _, raw_value = read_mcp3008_direct(0)
-        print(f"DEBUG: MCP3008 raw reading: {raw_value}")
-    except Exception as e:
-        print(f"DEBUG: MCP3008 read error: {e}")
     
     # Print status info (but less frequently to reduce console spam)
     if procedure_running and flow_rate > 0 and desired_vol > 0:
@@ -1312,6 +1411,16 @@ if __name__ == "__main__":
     if not servo_initialized and is_raspberry_pi:
         print("WARNING: Servo motor initialization failed!")
     
+    # Initialize PulseOx LED
+    pulseox_initialized = initialize_pulseox_led()
+    if not pulseox_initialized and is_raspberry_pi:
+        print("WARNING: PulseOx LED initialization failed!")
+    
+    # Initialize I2C and ADS1015 ADC
+    adc_initialized = initialize_i2c_adc()
+    if not adc_initialized and is_raspberry_pi:
+        print("WARNING: ADS1015 ADC initialization failed!")
+    
     # Initialize servo position variables
     if is_raspberry_pi and SERVO_DIRECT_ENABLED and pwm is not None:
         servo_current_position = 2.5  # Start at min position (matches initialization)
@@ -1341,4 +1450,19 @@ if __name__ == "__main__":
         if sio.connected:
             sio.disconnect()
         
+        # Turn off PulseOx LED
+        if is_raspberry_pi and GPIO is not None:
+            try:
+                GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
+            except:
+                pass
+        
+        # Clean up servo
         cleanup_servo()
+        
+        # Clean up GPIO
+        if is_raspberry_pi and GPIO is not None:
+            try:
+                GPIO.cleanup()
+            except:
+                pass
