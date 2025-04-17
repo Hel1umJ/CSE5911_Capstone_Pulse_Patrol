@@ -21,13 +21,14 @@ fi
 
 # Install dependencies every time
 echo "Installing dependencies..."
-# Install apt packages for Tkinter and PIL integration
+# Install the essential system packages for PIL/Tkinter
+echo "Installing system packages..."
+sudo apt-get update
 sudo apt-get install -y python3-tk python3-pil python3-pil.imagetk
 
-# NORA.py dependencies - install with sudo to ensure system-wide availability
+# Install Python dependencies using pip
+echo "Installing Python dependencies..."
 sudo pip3 install --break-system-packages matplotlib pillow python-socketio requests tk
-# server.py dependencies - also install with sudo for consistency
-sudo pip3 install --break-system-packages flask flask-cors flask-socketio
 
 # Install GPIO libraries and other required dependencies for Raspberry Pi
 if [ "$IS_RASPBERRY_PI" = true ]; then
@@ -115,27 +116,27 @@ if [ "$IS_RASPBERRY_PI" = true ]; then
   fi
 fi
 
-if pgrep -f "server.py" > /dev/null; then
-  echo "Web server is already running"
-else
-  echo "Building React frontend..."
-  # Install npm if not present
-  command -v npm >/dev/null || sudo apt-get install -y nodejs npm
-  cd "$PROJECT_DIR/Web_Vital_Dashboard"
-  npm install
-  npm run build
+#if pgrep -f "server.py" > /dev/null; then
+#  echo "Web server is already running"
+#else
+#  echo "Building React frontend..."
+#  # Install npm if not present
+#  command -v npm >/dev/null || sudo apt-get install -y nodejs npm
+#  cd "$PROJECT_DIR/Web_Vital_Dashboard"
+#  npm install
+#  npm run build
   
-  echo "Starting Web Dashboard server..."
-  # Also run server with sudo for consistency
-  if [ "$IS_RASPBERRY_PI" = true ]; then
-    sudo python server.py &
-  else
-    python server.py &
-  fi
-  SERVER_PID=$!
-  echo "Server started with PID: $SERVER_PID"
-  sleep 2
-fi
+#  echo "Starting Web Dashboard server..."
+#  # Also run server with sudo for consistency
+#  if [ "$IS_RASPBERRY_PI" = true ]; then
+#    sudo python server.py &
+#  else
+#    python server.py &
+#  fi
+#  SERVER_PID=$!
+#  echo "Server started with PID: $SERVER_PID"
+#  sleep 2
+#fi
 
 if pgrep -f "NORA.py" > /dev/null; then
   echo "NORA GUI is already running"
