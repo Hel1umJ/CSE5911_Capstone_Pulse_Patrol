@@ -12,7 +12,7 @@ LED_PIN = 21  # GPIO 21 is physical pin 40 (BCM numbering used below)
 # Initialize I2C and ADC
 i2c = busio.I2C(board.SCL, board.SDA)
 ads = ADS1015(i2c)
-chan = AnalogIn(ads, ADS1015.P0)  # reading from A0
+chan = AnalogIn(ads, 0) # AnalogIn(ads, ADS1015.P0) # reading from A0
 
 # Setup GPIO for LED
 GPIO.setmode(GPIO.BCM)
