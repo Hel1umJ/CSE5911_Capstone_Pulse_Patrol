@@ -82,7 +82,7 @@ try:
         minRED, maxRED = find_min_max(REDdat, RED_head, RED_tail, RED_count)
 
         # Avoid division by zero
-        if smoothedIR > 0 and smoothedRED > 0:
+        if smoothedIR > 0 and smoothedRED > 0 and (maxIR - minIR) > 0:
             R = ((maxRED - minRED) / smoothedRED) / ((maxIR - minIR) / smoothedIR)
             SpO2 = 110 - 25 * R
             print(f"SpO2: {SpO2:.2f}")
