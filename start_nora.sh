@@ -61,9 +61,14 @@ if [ "$IS_RASPBERRY_PI" = true ]; then
   
   # Install Python packages
   echo "Installing Python packages for GPIO access..."
-  sudo pip3 install --upgrade gpiozero pigpio
-  # Install ADS1015 ADC library for CircuitPython
-  sudo pip3 install --upgrade adafruit-circuitpython-ads1x15
+  # Try to use apt first (preferred method in Debian-based systems)
+  sudo apt-get install -y python3-gpiozero python3-pigpio python3-adafruit-blinka
+  
+  # If CircuitPython ADS1x15 isn't available through apt, try pip in the virtual environment
+  # This avoids the "externally-managed-environment" error
+  echo "Installing ADS1015 ADC library in virtual environment..."
+  # Make sure we're using the virtual environment pip, not system pip
+  pip install --upgrade gpiozero pigpio adafruit-circuitpython-ads1x15
   
   # Force gpiozero to use pigpio pin factory
   echo "Setting GPIOZERO_PIN_FACTORY=pigpio"
@@ -122,7 +127,12 @@ else
   npm run build
   
   echo "Starting Web Dashboard server..."
-  python server.py &
+  # Also run server with sudo for consistency
+  if [ "$IS_RASPBERRY_PI" = true ]; then
+    sudo python server.py &
+  else
+    python server.py &
+  fi
   SERVER_PID=$!
   echo "Server started with PID: $SERVER_PID"
   sleep 2
@@ -137,14 +147,12 @@ else
   # Make sure GPIOZERO_PIN_FACTORY environment variable is set
   export GPIOZERO_PIN_FACTORY=pigpio
   
-  # Check if root access might be needed
   if [ "$IS_RASPBERRY_PI" = true ]; then
-    echo "Running NORA with preferred settings for GPIO access"
-    # Run with current user but make sure environment variable is passed
-    GPIOZERO_PIN_FACTORY=pigpio python NORA.py &
+    echo "Running NORA with sudo for guaranteed GPIO access"
+    # Run with sudo and ensuring environment variables are passed
+    sudo GPIOZERO_PIN_FACTORY=pigpio python NORA.py &
     NORA_PID=$!
-    echo "NORA GUI started with PID: $NORA_PID"
-    echo "NOTE: If hardware still doesn't work, try: sudo GPIOZERO_PIN_FACTORY=pigpio python NORA.py"
+    echo "NORA GUI started with PID: $NORA_PID with sudo privileges"
   else
     python NORA.py &
     NORA_PID=$!
