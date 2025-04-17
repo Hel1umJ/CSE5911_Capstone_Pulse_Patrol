@@ -21,6 +21,9 @@ fi
 
 # Install dependencies every time
 echo "Installing dependencies..."
+# Install apt packages for Tkinter and PIL integration
+sudo apt-get install -y python3-tk python3-pil python3-pil.imagetk
+
 # NORA.py dependencies - install with sudo to ensure system-wide availability
 sudo pip3 install --break-system-packages matplotlib pillow python-socketio requests tk
 # server.py dependencies - also install with sudo for consistency
