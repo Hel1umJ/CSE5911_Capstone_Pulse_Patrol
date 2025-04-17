@@ -132,15 +132,15 @@ def initialize_pulseox_led():
         GPIO.setup(PULSEOX_PIN_LED, GPIO.OUT)
         GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)  # Start with LED off
         
-        # Test the LED with visible blinks to confirm it's working
-        print("Testing PulseOx LED - should blink 10 times at 100ms intervals...")
-        for i in range(10):
-            print(f"Blink {i+1}/10: ON")
+        # Test the LED with fast blinks to confirm it's working
+        print("Testing PulseOx LED - fast blinking test (20 blinks at 20ms intervals)...")
+        for i in range(20):
+            print(f"Blink {i+1}/20: ON")
             GPIO.output(PULSEOX_PIN_LED, GPIO.HIGH)
-            time.sleep(0.1)  # 100ms on for testing
-            print(f"Blink {i+1}/10: OFF")
+            time.sleep(0.02)  # 20ms on - fast clinical blinking
+            print(f"Blink {i+1}/20: OFF")
             GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
-            time.sleep(0.1)  # 100ms off for testing
+            time.sleep(0.02)  # 20ms off - fast clinical blinking
         
         print("PulseOx LED initialized and tested successfully")
         return True
@@ -167,33 +167,27 @@ def read_pulseox_with_ads1015():
         
         # Before starting, make sure LED is off
         GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
-        time.sleep(0.2)  # Longer wait for visual confirmation
+        time.sleep(0.02)  # Quick reset
         
         # Take multiple samples for better accuracy
-        for i in range(5):  # Reduced to 5 samples for more visible blinking
-            # Turn on LED (RED measurement) - 100ms for testing
-            print(f"Sample {i+1}/5: LED ON (RED reading)")
+        for i in range(10):  # More samples with faster blinking
+            # Turn on LED (RED measurement) - fast blink
+            print(f"Sample {i+1}/10: LED ON (RED reading)")
             GPIO.output(PULSEOX_PIN_LED, GPIO.HIGH)
-            time.sleep(0.1)  # 100ms for testing visibility
+            time.sleep(0.02)  # Fast 20ms on time
             
-            # Take multiple readings and average them like the Arduino code
-            red_temp = 0
-            for _ in range(5):
-                red_temp += adc_channel.value * 0.2
-                time.sleep(0.01)
+            # Take quick reading
+            red_temp = adc_channel.value
             red_values.append(red_temp)
             print(f"RED value: {red_temp}")
             
-            # Turn off LED (IR measurement) - 100ms for testing
-            print(f"Sample {i+1}/5: LED OFF (IR reading)")
+            # Turn off LED (IR measurement) - fast blink
+            print(f"Sample {i+1}/10: LED OFF (IR reading)")
             GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
-            time.sleep(0.1)  # 100ms for testing visibility
+            time.sleep(0.02)  # Fast 20ms off time
             
-            # Take multiple readings and average them like the Arduino code
-            ir_temp = 0
-            for _ in range(5):
-                ir_temp += adc_channel.value * 0.2
-                time.sleep(0.01)
+            # Take quick reading
+            ir_temp = adc_channel.value
             ir_values.append(ir_temp)
             print(f"IR value: {ir_temp}")
         
@@ -302,7 +296,7 @@ I2C_SCL_PIN = 3  # Physical pin 5
 I2C_ADS1015_ADDRESS = 0x48  # Default ADS1015 address
 
 
-UPDATE_INTERVAL = 1000 #in ms
+UPDATE_INTERVAL = 500 #in ms - faster updates for more responsive blinking
 vital_labels = {} #dict to store references to each vital's value label; we will use these to update the sensor values
 MAX_POINTS = 30 #number of points to store on the graph; 1 point for every tick/update interval
 
@@ -542,28 +536,16 @@ def update_vitals(root):
     """
     global t_step
     
-    # Only update SpO2 every 3 seconds to make the LED blinking more visible
-    # and to avoid overwhelming the console with debug output
-    if t_step % 3 == 0:
-        print("\n===== MEASURING SpO2 =====")
-        # Get SpO2 using the ADS1015 ADC
-        try:
-            # Use our new function to read PulseOx data
-            spo2_value = read_pulseox_with_ads1015()
-            print(f"SpO2 from sensor: {spo2_value}%")
-        except Exception as e:
-            print(f"Error reading SpO2: {e}")
-            spo2_value = rand.randint(96, 100)  # Use random value if reading fails
-    else:
-        # Use the previous value or a random value
-        if 'vital_labels' in globals() and 'spo2' in vital_labels:
-            current_text = vital_labels['spo2'].cget("text")
-            if current_text != "--":
-                spo2_value = int(current_text.replace("%", ""))
-            else:
-                spo2_value = rand.randint(96, 100)
-        else:
-            spo2_value = rand.randint(96, 100)
+    # Measure SpO2 every cycle for continuous real-time monitoring
+    print("\n===== MEASURING SpO2 =====")
+    # Get SpO2 using the ADS1015 ADC
+    try:
+        # Use our function to read PulseOx data with fast blinking
+        spo2_value = read_pulseox_with_ads1015()
+        print(f"SpO2 from sensor: {spo2_value}%")
+    except Exception as e:
+        print(f"Error reading SpO2: {e}")
+        spo2_value = rand.randint(96, 100)  # Use random value if reading fails
     
     # Populate sensor info with real SpO2 and random values for other vitals
     sensor_info = {
