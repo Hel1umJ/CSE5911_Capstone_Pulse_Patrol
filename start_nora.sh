@@ -21,17 +21,17 @@ fi
 
 # Install dependencies every time
 echo "Installing dependencies..."
-# NORA.py dependencies
-pip install matplotlib pillow python-socketio requests tk
-# server.py dependencies
-pip install flask flask-cors flask-socketio
+# NORA.py dependencies - install with sudo to ensure system-wide availability
+sudo pip3 install --break-system-packages matplotlib pillow python-socketio requests tk
+# server.py dependencies - also install with sudo for consistency
+sudo pip3 install --break-system-packages flask flask-cors flask-socketio
 
 # Install GPIO libraries and other required dependencies for Raspberry Pi
 if [ "$IS_RASPBERRY_PI" = true ]; then
   echo "Installing GPIO libraries and dependencies..."
   sudo apt-get update -y
   # Install system packages - make sure we have everything needed for GPIO
-  sudo apt-get install -y python3-gpiozero libopenblas0 python3-pigpio python3-rpi.gpio python3-i2c-tools
+  sudo apt-get install -y python3-gpiozero libopenblas0 python3-pigpio python3-rpi.gpio i2c-tools
   
   # Enable SPI and I2C interfaces if not already enabled
   sudo raspi-config nonint do_spi 0
@@ -61,14 +61,10 @@ if [ "$IS_RASPBERRY_PI" = true ]; then
   
   # Install Python packages
   echo "Installing Python packages for GPIO access..."
-  # Try to use apt first (preferred method in Debian-based systems)
-  sudo apt-get install -y python3-gpiozero python3-pigpio python3-adafruit-blinka
-  
-  # If CircuitPython ADS1x15 isn't available through apt, try pip in the virtual environment
-  # This avoids the "externally-managed-environment" error
-  echo "Installing ADS1015 ADC library in virtual environment..."
-  # Make sure we're using the virtual environment pip, not system pip
-  pip install --upgrade gpiozero pigpio adafruit-circuitpython-ads1x15
+  # Install Python packages using pip directly
+  echo "Installing Python packages directly..."
+  sudo pip3 install --break-system-packages gpiozero pigpio
+  sudo pip3 install --break-system-packages adafruit-circuitpython-ads1x15
   
   # Force gpiozero to use pigpio pin factory
   echo "Setting GPIOZERO_PIN_FACTORY=pigpio"
