@@ -85,27 +85,45 @@ def initialize_i2c_adc():
         # Create the I2C bus
         i2c = busio.I2C(board.SCL, board.SDA)
         
-        # Create the ADS object with address 0x48 (default) or 0x49 (address pin tied to VDD)
-        # For device 2, the address is likely different than default
-        # ADS1015 address options: 0x48 (GND), 0x49 (VDD), 0x4A (SDA), 0x4B (SCL)
-        ads_address = 0x49  # Set to device 2 address (0x49)
+        # Try to detect and connect to the ADC
+        # Since multiple I2C addresses were detected (0x36, 0x48, 0x49)
+        # Try both 0x48 (default) and 0x49 addresses for ADS1015
+        ads_addresses = [0x48, 0x49]  # Try both common ADS1015 addresses
+        ads_connected = False
         
-        print(f"Attempting to connect to ADS1015 at address 0x{ads_address:02X}")
-        ads = ADS.ADS1015(i2c, address=ads_address)
+        for ads_address in ads_addresses:
+            try:
+                print(f"Attempting to connect to ADS1015 at address 0x{ads_address:02X}")
+                ads = ADS.ADS1015(i2c, address=ads_address)
+                
+                # Configure ADC settings
+                ads.gain = 1  # Set gain (options: 2/3, 1, 2, 4, 8, 16)
+                ads.data_rate = 1600  # Set data rate (options: 128, 250, 490, 920, 1600, 2400, 3300)
+                
+                # Try to read a value to confirm connection
+                test_channel = AnalogIn(ads, ADS.P0)
+                test_val = test_channel.value
+                print(f"Test reading from ADC: {test_val}")
+                
+                # If we get here without exception, device is connected
+                adc_channel = test_channel
+                print(f"ADS1015 ADC found and initialized at address 0x{ads_address:02X}")
+                ads_connected = True
+                break
+            except Exception as e:
+                print(f"No ADS1015 found at address 0x{ads_address:02X}: {e}")
+                continue
         
-        # Configure ADC settings
-        ads.gain = 1  # Set gain (options: 2/3, 1, 2, 4, 8, 16)
-        ads.data_rate = 1600  # Set data rate (options: 128, 250, 490, 920, 1600, 2400, 3300)
-        
-        # Create analog input channel 0
-        adc_channel = AnalogIn(ads, ADS.P0)
-        
+        if not ads_connected:
+            print("Failed to connect to ADS1015 at any common address")
+            return False
+            
         print("ADS1015 ADC initialized successfully")
         return True
     except Exception as e:
         print(f"Failed to initialize ADS1015 ADC: {e}")
-        print("If connection fails, check the device address with 'i2cdetect -y 1' and update")
-        print("Possible ADS1015 addresses: 0x48, 0x49, 0x4A, or 0x4B")
+        print("If connection fails, check the device addresses with 'i2cdetect -y 1'")
+        print("Detected I2C addresses: 0x36, 0x48, 0x49")
         return False
 
 def initialize_pulseox_led():
@@ -219,7 +237,7 @@ FONTS = {
 """
 GPIO Config
 """
-SERVO_PIN = 14  # GPIO pin for servo control (PWM); physical pin 8
+SERVO_PIN = 18  # GPIO pin for servo control (PWM); physical pin 12
 # SG90 specific pulse widths - more precise for this specific model
 SERVO_MIN_PULSE_WIDTH = 500   # min pulse width in microseconds (0 degrees)
 SERVO_MAX_PULSE_WIDTH = 2400  # max pulse width in microseconds (180 degrees)
@@ -247,6 +265,9 @@ PULSEOX_PIN_LED = 21  # GPIO pin for PulseOx LED control; physical pin 40
 # These are the default I2C pins on Raspberry Pi
 I2C_SDA_PIN = 2  # Physical pin 3
 I2C_SCL_PIN = 3  # Physical pin 5
+
+# I2C addresses detected (0x36, 0x48, 0x49)
+I2C_ADS1015_ADDRESS = 0x48  # Typical default ADS1015 address
 
 
 UPDATE_INTERVAL = 1000 #in ms

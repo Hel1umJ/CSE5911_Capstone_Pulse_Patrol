@@ -61,20 +61,36 @@ void setup() {
 }
 
 void loop () {
+    REDtemp = 0;
+    IRtemp = 0;
     digitalWrite(Led, HIGH);
-    REDtemp = analogRead(sensorPin);
-    delay(50);
+    delay(10);
+    REDtemp += analogRead(sensorPin)*.2;
+    delay(10);
+    REDtemp += analogRead(sensorPin)*.2;
+    delay(10);
+    REDtemp += analogRead(sensorPin)*.2;
+    delay(10);
+    REDtemp += analogRead(sensorPin)*.2;
+    delay(10);
+    REDtemp += analogRead(sensorPin)*.2;
     push(REDtemp, REDdat, &RED_head, &RED_tail, &RED_count);  // For RED data
     
     digitalWrite(Led, LOW);
-
-    
-    IRtemp = analogRead(sensorPin);
-    delay(50);
+    delay(10);
+    IRtemp += analogRead(sensorPin)*.2;
+    delay(10);
+    IRtemp += analogRead(sensorPin)*.2;
+    delay(10);
+    IRtemp += analogRead(sensorPin)*.2;
+    delay(10);
+    IRtemp += analogRead(sensorPin)*.2;
+    delay(10);
+    IRtemp += analogRead(sensorPin)*.2;
     push(IRtemp, IRdat, &IR_head, &IR_tail, &IR_count);  // For IR data
     
-
     float minIR, maxIR, minRED, maxRED;
+
     float smoothedIR = movingAverage(IRdat, &IR_head, &IR_count, 15);
     float smoothedRED = movingAverage(REDdat, &RED_head, &RED_count, 15);
 
@@ -88,8 +104,11 @@ void loop () {
     
     //Serial.print(" Smoothed IR: "); Serial.print(smoothedIR);
     //Serial.print(" Smoothed RED: "); Serial.println(smoothedRED);
-
+    
     float R = ((maxRED - minRED)/(smoothedRED))/((maxIR-minIR)/(smoothedIR));
     SpO2 =110 -25*R;
     Serial.print("SpO2: "); Serial.println(SpO2);
+
+    //Serial.print(" Red: "); Serial.print(REDtemp);
+    //Serial.print(" IR: "); Serial.println(IRtemp);
 }
