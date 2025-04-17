@@ -2,17 +2,17 @@ import time
 import board
 import busio
 import RPi.GPIO as GPIO
-from adafruit_ads1x15.ads1015 import ADS1015 
+from adafruit_ads1x15.ads1015 import ADS1015
 from adafruit_ads1x15.analog_in import AnalogIn
 
 # Constants
 BUFFER_SIZE = 80
-LED_PIN = 21  # GPIO 21 is physical pin 40 (BCM numbering used below)
+LED_PIN = 40
 
 # Initialize I2C and ADC
 i2c = busio.I2C(board.SCL, board.SDA)
 ads = ADS1015(i2c)
-chan = AnalogIn(ads, 0) # AnalogIn(ads, ADS1015.P0) # reading from A0
+chan = AnalogIn(ads, 0)  # Reading from channel 0
 
 # Setup GPIO for LED
 GPIO.setmode(GPIO.BCM)
@@ -63,12 +63,14 @@ try:
 
         # RED LED ON
         GPIO.output(LED_PIN, GPIO.HIGH)
+        print("LED turned on")
+        time.sleep(0.1)  # Small delay before reading
         for _ in range(5):
             time.sleep(0.01)
             REDtemp += chan.value * 0.2
         RED_head, RED_tail, RED_count = push(REDtemp, REDdat, (RED_head, RED_tail, RED_count))
 
-        # IR LED ON (RED LED OFF)
+        # IR LED OFF
         GPIO.output(LED_PIN, GPIO.LOW)
         for _ in range(5):
             time.sleep(0.01)
@@ -86,6 +88,8 @@ try:
             R = ((maxRED - minRED) / smoothedRED) / ((maxIR - minIR) / smoothedIR)
             SpO2 = 110 - 25 * R
             print(f"SpO2: {SpO2:.2f}")
+        else:
+            print("Divide by 0 :/")
 
 except KeyboardInterrupt:
     GPIO.cleanup()
