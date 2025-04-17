@@ -558,8 +558,10 @@ def update_servo_position():
         return
     
     # For direct PWM - SG90 specific duty cycles
-    min_duty = 2.5   # 0 degrees - 500μs/20000μs = 2.5% (syringe at 0)
-    max_duty = 12.0  # 180 degrees - 2400μs/20000μs = 12.0% (syringe fully depressed)
+    # REVERSED: We're now using max_duty for syringe at 0 and min_duty for fully depressed
+    # This reverses the motor direction to push rather than pull
+    max_duty = 12.0  # 180 degrees - 2400μs/20000μs = 12.0% (syringe at 0 - starting position)
+    min_duty = 2.5   # 0 degrees - 500μs/20000μs = 2.5% (syringe fully depressed)
     
     if is_raspberry_pi:
         # Using direct PWM control
@@ -568,23 +570,25 @@ def update_servo_position():
                 # Update servo target position based on current volume ratio
                 if procedure_running and flow_rate > 0 and desired_vol > 0:
                     # Calculate target position based on current volume percentage
+                    # REVERSED: We start at max_duty and move towards min_duty as volume increases
                     volume_percentage = min(vol_given / desired_vol, 1.0)
-                    servo_target_position = min_duty + (max_duty - min_duty) * volume_percentage
+                    servo_target_position = max_duty - (max_duty - min_duty) * volume_percentage
                     
                     # If we're at the final position, stop continuous movement
                     if vol_given >= desired_vol:
                         continuous_movement = False
-                        servo_target_position = min_duty + (max_duty - min_duty)  # Full extension
+                        servo_target_position = min_duty  # Fully depressed position
                 elif not procedure_running:
-                    servo_target_position = min_duty  # Return to start position when stopped
+                    servo_target_position = max_duty  # Return to start position when stopped
                     continuous_movement = False
                 
                 # Smooth movement: move directly to calculated position based on volume
                 # Instead of incremental steps which might cause jittering
                 if procedure_running and flow_rate > 0 and desired_vol > 0:
                     # Calculate the direct position based on current volume
+                    # REVERSED: Movement from max_duty to min_duty as volume increases
                     volume_percentage = min(vol_given / desired_vol, 1.0) if desired_vol > 0 else 0
-                    target_duty = min_duty + (max_duty - min_duty) * volume_percentage
+                    target_duty = max_duty - (max_duty - min_duty) * volume_percentage
                     
                     # Only move if the change is significant enough (reduces jitter from tiny movements)
                     if abs(servo_current_position - target_duty) > 0.1:
@@ -599,10 +603,10 @@ def update_servo_position():
                         # Don't stop PWM during procedure - continuous signal prevents jittering
                         # Let it keep holding the position
                 elif not procedure_running:
-                    # When not running, stop at min position and turn off PWM
-                    if abs(servo_current_position - min_duty) > 0.1:
-                        servo_current_position = min_duty
-                        pwm.ChangeDutyCycle(min_duty)
+                    # When not running, return to starting position (max_duty) and turn off PWM
+                    if abs(servo_current_position - max_duty) > 0.1:
+                        servo_current_position = max_duty
+                        pwm.ChangeDutyCycle(max_duty)
                         time.sleep(0.2)  # Give time to reach position
                         pwm.ChangeDutyCycle(0)  # Stop pulses when idle
                     
@@ -618,23 +622,24 @@ def update_servo_position():
             try:
                 # Calculate positions for gpiozero (-1 to 1 range)
                 if procedure_running and flow_rate > 0 and desired_vol > 0:
-                    # Calculate target position based on current volume percentage
+                    # REVERSED: Movement from min value to max value as volume increases
                     volume_percentage = min(vol_given / desired_vol, 1.0)
-                    servo_target_position = SERVO_MIN_VALUE + (SERVO_MAX_VALUE - SERVO_MIN_VALUE) * volume_percentage
+                    servo_target_position = SERVO_MAX_VALUE - (SERVO_MAX_VALUE - SERVO_MIN_VALUE) * volume_percentage
                     
                     # If we're at the final position, stop continuous movement
                     if vol_given >= desired_vol:
                         continuous_movement = False
-                        servo_target_position = SERVO_MAX_VALUE  # Full extension
+                        servo_target_position = SERVO_MIN_VALUE  # Fully depressed position
                 elif not procedure_running:
-                    servo_target_position = SERVO_MIN_VALUE  # Return to start position when stopped
+                    servo_target_position = SERVO_MAX_VALUE  # Return to start position when stopped
                     continuous_movement = False
                 
                 # Move directly to calculated position based on volume percentage
                 if procedure_running and flow_rate > 0 and desired_vol > 0:
                     # Calculate the direct position based on current volume 
+                    # REVERSED: Movement from max value to min value as volume increases
                     volume_percentage = min(vol_given / desired_vol, 1.0) if desired_vol > 0 else 0
-                    target_position = SERVO_MIN_VALUE + (SERVO_MAX_VALUE - SERVO_MIN_VALUE) * volume_percentage
+                    target_position = SERVO_MAX_VALUE - (SERVO_MAX_VALUE - SERVO_MIN_VALUE) * volume_percentage
                     
                     # Only move if the change is significant enough (reduces jitter)
                     if abs(servo_current_position - target_position) > 0.05:
@@ -644,10 +649,10 @@ def update_servo_position():
                         print(f"DEBUG: Moving servo to {servo_current_position:.4f} position ({volume_percentage*100:.1f}% of range)")
                         servo.value = servo_current_position
                 elif not procedure_running:
-                    # Return to min position when not running
-                    if abs(servo_current_position - SERVO_MIN_VALUE) > 0.05:
-                        servo_current_position = SERVO_MIN_VALUE
-                        servo.value = SERVO_MIN_VALUE
+                    # Return to MAX position when not running (reversed from original)
+                    if abs(servo_current_position - SERVO_MAX_VALUE) > 0.05:
+                        servo_current_position = SERVO_MAX_VALUE
+                        servo.value = SERVO_MAX_VALUE
                     
                     # Record when we made this move
                     last_servo_update = current_time
@@ -1261,8 +1266,8 @@ def initialize_servo():
             
             # Calculate duty cycle for initial position (typically 2-12%)
             # For a standard servo at 50Hz, 2.5% duty cycle is 0°, 12.5% is 180°
-            # Start at middle position
-            initial_duty_cycle = 7.25  # Middle position for SG90 (90°)
+            # Start at max position (180°) - REVERSED from original
+            initial_duty_cycle = 12.0  # Max position for SG90 (180°)
             
             # Start PWM and initialize servo
             pwm.start(initial_duty_cycle)
@@ -1440,13 +1445,13 @@ if __name__ == "__main__":
     if not adc_initialized and is_raspberry_pi:
         print("WARNING: ADS1015 ADC initialization failed!")
     
-    # Initialize servo position variables
+    # Initialize servo position variables - REVERSED to match new direction
     if is_raspberry_pi and SERVO_DIRECT_ENABLED and pwm is not None:
-        servo_current_position = 2.5  # Start at min position (matches initialization)
-        servo_target_position = 2.5
+        servo_current_position = 12.0  # Start at MAX position (matches initialization)
+        servo_target_position = 12.0
     elif is_raspberry_pi and servo is not None:
-        servo_current_position = SERVO_MIN_VALUE  # Start at min position
-        servo_target_position = SERVO_MIN_VALUE
+        servo_current_position = SERVO_MAX_VALUE  # Start at MAX position
+        servo_target_position = SERVO_MAX_VALUE
     
     # Create GUI
     app = create_gui()
