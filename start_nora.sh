@@ -30,18 +30,44 @@ pip install flask flask-cors flask-socketio
 if [ "$IS_RASPBERRY_PI" = true ]; then
   echo "Installing GPIO libraries and dependencies..."
   sudo apt-get update -y
-  # Install system packages
-  sudo apt-get install -y python3-gpiozero libopenblas0 python3-pigpio python3-i2c-tools
+  # Install system packages - make sure we have everything needed for GPIO
+  sudo apt-get install -y python3-gpiozero libopenblas0 python3-pigpio python3-rpi.gpio python3-i2c-tools
+  
   # Enable SPI and I2C interfaces if not already enabled
   sudo raspi-config nonint do_spi 0
   sudo raspi-config nonint do_i2c 0
-  # Start pigpio daemon
+  
+  # Make sure gpio group exists and add current user to it
+  if ! grep -q "^gpio:" /etc/group; then
+    echo "Creating gpio group..."
+    sudo groupadd gpio
+  fi
+  echo "Adding user to gpio group..."
+  sudo usermod -a -G gpio $USER
+  
+  # Set permissions for GPIO, SPI, and I2C devices
+  echo "Setting hardware device permissions..."
+  sudo chmod a+rw /dev/gpiomem 2>/dev/null || true
+  sudo chmod a+rw /dev/i2c-* 2>/dev/null || true
+  sudo chmod a+rw /dev/spidev* 2>/dev/null || true
+  
+  # Stop and restart pigpio daemon to ensure it's running properly
+  echo "Ensuring pigpio daemon is running correctly..."
+  sudo systemctl stop pigpiod
   sudo systemctl enable pigpiod
   sudo systemctl start pigpiod
+  # Wait a moment for the daemon to be fully started
+  sleep 2
+  
   # Install Python packages
-  pip install gpiozero pigpio
+  echo "Installing Python packages for GPIO access..."
+  sudo pip3 install --upgrade gpiozero pigpio
   # Install ADS1015 ADC library for CircuitPython
-  pip install adafruit-circuitpython-ads1x15
+  sudo pip3 install --upgrade adafruit-circuitpython-ads1x15
+  
+  # Force gpiozero to use pigpio pin factory
+  echo "Setting GPIOZERO_PIN_FACTORY=pigpio"
+  export GPIOZERO_PIN_FACTORY=pigpio
 fi
 
 echo "Dependencies installed successfully"
@@ -107,9 +133,23 @@ if pgrep -f "NORA.py" > /dev/null; then
 else
   echo "Starting NORA GUI..."
   cd "$PROJECT_DIR/PI_Vital_Dashboard"
-  python NORA.py &
-  NORA_PID=$!
-  echo "NORA GUI started with PID: $NORA_PID"
+  
+  # Make sure GPIOZERO_PIN_FACTORY environment variable is set
+  export GPIOZERO_PIN_FACTORY=pigpio
+  
+  # Check if root access might be needed
+  if [ "$IS_RASPBERRY_PI" = true ]; then
+    echo "Running NORA with preferred settings for GPIO access"
+    # Run with current user but make sure environment variable is passed
+    GPIOZERO_PIN_FACTORY=pigpio python NORA.py &
+    NORA_PID=$!
+    echo "NORA GUI started with PID: $NORA_PID"
+    echo "NOTE: If hardware still doesn't work, try: sudo GPIOZERO_PIN_FACTORY=pigpio python NORA.py"
+  else
+    python NORA.py &
+    NORA_PID=$!
+    echo "NORA GUI started with PID: $NORA_PID"
+  fi
 fi
 
 echo "NORA system is now running!"

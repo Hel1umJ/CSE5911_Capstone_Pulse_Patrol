@@ -20,11 +20,21 @@ pwm = None  # For direct PWM control
 if is_raspberry_pi:
     try:
         # Import GPIO libraries
-        from gpiozero import Servo, PWMLED
+        from gpiozero import Servo, PWMLED, Device
         from gpiozero.pins.rpigpio import RPiGPIOFactory
         from gpiozero.pins.lgpio import LGPIOFactory
         from gpiozero.pins.pigpio import PiGPIOFactory
         from gpiozero.pins.native import NativeFactory
+        
+        # Set default pin factory to PiGPIO for better performance with servos
+        # This can be overridden by the GPIOZERO_PIN_FACTORY environment variable
+        print("Setting default pin factory to PiGPIO for better hardware access...")
+        try:
+            Device.pin_factory = PiGPIOFactory()
+            print("PiGPIO pin factory set successfully")
+        except Exception as e:
+            print(f"Warning: Could not set PiGPIO pin factory: {e}")
+            print("Will try alternative pin factories...")
         
         # Import backend libraries directly to ensure they're available
         try:
