@@ -133,14 +133,14 @@ def initialize_pulseox_led():
         GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)  # Start with LED off
         
         # Test the LED with visible blinks to confirm it's working
-        print("Testing PulseOx LED - should blink 3 times...")
-        for i in range(3):
-            print(f"Blink {i+1}/3: ON")
+        print("Testing PulseOx LED - should blink 10 times at 100ms intervals...")
+        for i in range(10):
+            print(f"Blink {i+1}/10: ON")
             GPIO.output(PULSEOX_PIN_LED, GPIO.HIGH)
-            time.sleep(0.5)  # Longer blink for visibility
-            print(f"Blink {i+1}/3: OFF")
+            time.sleep(0.1)  # 100ms on for testing
+            print(f"Blink {i+1}/10: OFF")
             GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
-            time.sleep(0.5)
+            time.sleep(0.1)  # 100ms off for testing
         
         print("PulseOx LED initialized and tested successfully")
         return True
@@ -171,10 +171,10 @@ def read_pulseox_with_ads1015():
         
         # Take multiple samples for better accuracy
         for i in range(5):  # Reduced to 5 samples for more visible blinking
-            # Turn on LED (RED measurement) - VISIBLY LONGER
+            # Turn on LED (RED measurement) - 100ms for testing
             print(f"Sample {i+1}/5: LED ON (RED reading)")
             GPIO.output(PULSEOX_PIN_LED, GPIO.HIGH)
-            time.sleep(0.2)  # Longer wait for visual confirmation
+            time.sleep(0.1)  # 100ms for testing visibility
             
             # Take multiple readings and average them like the Arduino code
             red_temp = 0
@@ -184,10 +184,10 @@ def read_pulseox_with_ads1015():
             red_values.append(red_temp)
             print(f"RED value: {red_temp}")
             
-            # Turn off LED (IR measurement) - VISIBLY LONGER
+            # Turn off LED (IR measurement) - 100ms for testing
             print(f"Sample {i+1}/5: LED OFF (IR reading)")
             GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
-            time.sleep(0.2)  # Longer wait for visual confirmation
+            time.sleep(0.1)  # 100ms for testing visibility
             
             # Take multiple readings and average them like the Arduino code
             ir_temp = 0
