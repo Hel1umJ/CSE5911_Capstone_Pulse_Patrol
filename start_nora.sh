@@ -38,7 +38,13 @@ if [ "$IS_RASPBERRY_PI" = true ]; then
   sudo systemctl enable pigpiod
   sudo systemctl start pigpiod
   # Install Python packages
-  pip install gpiozero spidev pigpio
+  pip install gpiozero spidev pigpio adafruit-ads1x15
+
+  sudo apt-get install -y i2c-tools
+  sudo apt-get install -y python3-rpi.gpio
+  sudo raspi-config nonint do_i2c 0
+
+
 fi
 
 echo "Dependencies installed successfully"
@@ -73,12 +79,12 @@ fi
 if pgrep -f "server.py" > /dev/null; then
   echo "Web server is already running"
 else
-  echo "Building React frontend..."
-  # Install npm if not present
-  command -v npm >/dev/null || sudo apt-get install -y nodejs npm
-  cd "$PROJECT_DIR/Web_Vital_Dashboard"
-  npm install
-  npm run build
+  # echo "Building React frontend..."
+  # # Install npm if not present
+  # command -v npm >/dev/null || sudo apt-get install -y nodejs npm
+  # cd "$PROJECT_DIR/Web_Vital_Dashboard"
+  # npm install
+  # npm run build
   
   echo "Starting Web Dashboard server..."
   python server.py &
