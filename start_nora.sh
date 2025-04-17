@@ -66,6 +66,8 @@ if [ "$IS_RASPBERRY_PI" = true ]; then
     # Check for connected I2C devices
     echo "Checking for connected I2C devices:"
     i2cdetect -y 1
+    echo "Looking for ADS1015 ADC at addresses 0x48, 0x49, 0x4A, or 0x4B"
+    echo "Note: Device 2 as specified is likely at address 0x49"
   else
     echo "WARNING: I2C interface not detected. Please reboot and try again."
   fi

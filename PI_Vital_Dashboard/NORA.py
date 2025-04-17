@@ -85,8 +85,13 @@ def initialize_i2c_adc():
         # Create the I2C bus
         i2c = busio.I2C(board.SCL, board.SDA)
         
-        # Create the ADS object
-        ads = ADS.ADS1015(i2c)
+        # Create the ADS object with address 0x48 (default) or 0x49 (address pin tied to VDD)
+        # For device 2, the address is likely different than default
+        # ADS1015 address options: 0x48 (GND), 0x49 (VDD), 0x4A (SDA), 0x4B (SCL)
+        ads_address = 0x49  # Set to device 2 address (0x49)
+        
+        print(f"Attempting to connect to ADS1015 at address 0x{ads_address:02X}")
+        ads = ADS.ADS1015(i2c, address=ads_address)
         
         # Configure ADC settings
         ads.gain = 1  # Set gain (options: 2/3, 1, 2, 4, 8, 16)
@@ -99,6 +104,8 @@ def initialize_i2c_adc():
         return True
     except Exception as e:
         print(f"Failed to initialize ADS1015 ADC: {e}")
+        print("If connection fails, check the device address with 'i2cdetect -y 1' and update")
+        print("Possible ADS1015 addresses: 0x48, 0x49, 0x4A, or 0x4B")
         return False
 
 def initialize_pulseox_led():
