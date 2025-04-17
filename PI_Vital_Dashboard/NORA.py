@@ -126,16 +126,27 @@ def initialize_pulseox_led():
         return False
     
     try:
-        print(f"Initializing PulseOx LED on GPIO {PULSEOX_PIN_LED}...")
+        print(f"Initializing PulseOx LED on GPIO {PULSEOX_PIN_LED} (physical pin 40)...")
         
         # Configure GPIO pin for LED control
         GPIO.setup(PULSEOX_PIN_LED, GPIO.OUT)
         GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)  # Start with LED off
         
-        print("PulseOx LED initialized successfully")
+        # Test the LED with visible blinks to confirm it's working
+        print("Testing PulseOx LED - should blink 3 times...")
+        for i in range(3):
+            print(f"Blink {i+1}/3: ON")
+            GPIO.output(PULSEOX_PIN_LED, GPIO.HIGH)
+            time.sleep(0.5)  # Longer blink for visibility
+            print(f"Blink {i+1}/3: OFF")
+            GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
+            time.sleep(0.5)
+        
+        print("PulseOx LED initialized and tested successfully")
         return True
     except Exception as e:
         print(f"Failed to initialize PulseOx LED: {e}")
+        print(f"Error details: {str(e)}")
         return False
 
 def read_pulseox_with_ads1015():
@@ -151,19 +162,43 @@ def read_pulseox_with_ads1015():
         red_values = []
         ir_values = []
         
+        print("*** Starting PulseOx reading cycle ***")
+        print(f"LED pin: GPIO {PULSEOX_PIN_LED} (physical pin 40)")
+        
+        # Before starting, make sure LED is off
+        GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
+        time.sleep(0.2)  # Longer wait for visual confirmation
+        
         # Take multiple samples for better accuracy
-        for _ in range(10):
-            # Turn on LED (RED measurement)
+        for i in range(5):  # Reduced to 5 samples for more visible blinking
+            # Turn on LED (RED measurement) - VISIBLY LONGER
+            print(f"Sample {i+1}/5: LED ON (RED reading)")
             GPIO.output(PULSEOX_PIN_LED, GPIO.HIGH)
-            time.sleep(0.05)  # Wait for signal to stabilize
-            red_value = adc_channel.value
-            red_values.append(red_value)
+            time.sleep(0.2)  # Longer wait for visual confirmation
             
-            # Turn off LED (IR measurement)
+            # Take multiple readings and average them like the Arduino code
+            red_temp = 0
+            for _ in range(5):
+                red_temp += adc_channel.value * 0.2
+                time.sleep(0.01)
+            red_values.append(red_temp)
+            print(f"RED value: {red_temp}")
+            
+            # Turn off LED (IR measurement) - VISIBLY LONGER
+            print(f"Sample {i+1}/5: LED OFF (IR reading)")
             GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
-            time.sleep(0.05)  # Wait for signal to stabilize
-            ir_value = adc_channel.value
-            ir_values.append(ir_value)
+            time.sleep(0.2)  # Longer wait for visual confirmation
+            
+            # Take multiple readings and average them like the Arduino code
+            ir_temp = 0
+            for _ in range(5):
+                ir_temp += adc_channel.value * 0.2
+                time.sleep(0.01)
+            ir_values.append(ir_temp)
+            print(f"IR value: {ir_temp}")
+        
+        # Make sure LED is off when done
+        GPIO.output(PULSEOX_PIN_LED, GPIO.LOW)
         
         # Calculate average values
         avg_red = sum(red_values) / len(red_values)
@@ -176,6 +211,9 @@ def read_pulseox_with_ads1015():
         # Calculate min and max for IR
         min_ir = min(ir_values)
         max_ir = max(ir_values)
+        
+        print(f"RED: min={min_red}, max={max_red}, avg={avg_red}")
+        print(f"IR: min={min_ir}, max={max_ir}, avg={avg_ir}")
         
         # Calculate R value similar to Arduino implementation
         if avg_red > 0 and avg_ir > 0 and (max_red - min_red) > 0 and (max_ir - min_ir) > 0:
@@ -191,9 +229,12 @@ def read_pulseox_with_ads1015():
             return spo2_value
         else:
             print("Invalid sensor readings, using fallback value")
+            print(f"RED values: {red_values}")
+            print(f"IR values: {ir_values}")
             return rand.randint(96, 100)
     except Exception as e:
         print(f"Error reading PulseOx sensor: {e}")
+        print(f"Error details: {str(e)}")
         return rand.randint(96, 100)  # Return random value on error
 
 """
@@ -501,14 +542,28 @@ def update_vitals(root):
     """
     global t_step
     
-    # Get SpO2 using the ADS1015 ADC
-    try:
-        # Use our new function to read PulseOx data
-        spo2_value = read_pulseox_with_ads1015()
-        print(f"SpO2 from sensor: {spo2_value}%")
-    except Exception as e:
-        print(f"Error reading SpO2: {e}")
-        spo2_value = rand.randint(96, 100)  # Use random value if reading fails
+    # Only update SpO2 every 3 seconds to make the LED blinking more visible
+    # and to avoid overwhelming the console with debug output
+    if t_step % 3 == 0:
+        print("\n===== MEASURING SpO2 =====")
+        # Get SpO2 using the ADS1015 ADC
+        try:
+            # Use our new function to read PulseOx data
+            spo2_value = read_pulseox_with_ads1015()
+            print(f"SpO2 from sensor: {spo2_value}%")
+        except Exception as e:
+            print(f"Error reading SpO2: {e}")
+            spo2_value = rand.randint(96, 100)  # Use random value if reading fails
+    else:
+        # Use the previous value or a random value
+        if 'vital_labels' in globals() and 'spo2' in vital_labels:
+            current_text = vital_labels['spo2'].cget("text")
+            if current_text != "--":
+                spo2_value = int(current_text.replace("%", ""))
+            else:
+                spo2_value = rand.randint(96, 100)
+        else:
+            spo2_value = rand.randint(96, 100)
     
     # Populate sensor info with real SpO2 and random values for other vitals
     sensor_info = {
