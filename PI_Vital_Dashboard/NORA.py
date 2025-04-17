@@ -12,6 +12,8 @@ import time
 import threading
 import platform
 
+from SpO2 import get_spo2_reading, cleanup
+import time
 
 is_raspberry_pi = platform.system() == "Linux" and platform.machine().startswith(("arm", "aarch"))
 servo = None
@@ -366,20 +368,30 @@ def update_vitals(root):
     
     # Get SpO2 from the MCP3008 if available
     try:
-        from PulseOX.A2D import read_mcp3008_direct
-        _, raw_value = read_mcp3008_direct(0)
+        # from PulseOX.A2D import read_mcp3008_direct
+        # _, raw_value = read_mcp3008_direct(0)
         
-        # Convert raw value to SpO2 percentage using the simplified approach
-        if raw_value > 0:
-            # Simple mapping function as a placeholder
-            simulated_ratio = 0.5 + (0.7 * (1023 - raw_value) / 1023)
-            spo2_value = 110 - (25 * simulated_ratio)
+        # # Convert raw value to SpO2 percentage using the simplified approach
+        # if raw_value > 0:
+        #     # Simple mapping function as a placeholder
+        #     simulated_ratio = 0.5 + (0.7 * (1023 - raw_value) / 1023)
+        #     spo2_value = 110 - (25 * simulated_ratio)
             
+        #     # Clamp to reasonable SpO2 range
+        #     spo2_value = max(70, min(100, int(spo2_value)))
+        #     print(f"SpO2 from sensor: {spo2_value}%")
+
+        from SpO2 import get_spo2_reading, cleanup
+        spo2 = get_spo2_reading()
+        # if spo2:
+        print(f"SpO2: {spo2}%")
+
+        if spo2 > 0:
             # Clamp to reasonable SpO2 range
-            spo2_value = max(70, min(100, int(spo2_value)))
-            print(f"SpO2 from sensor: {spo2_value}%")
+            spo2_value = max(70, min(100, int(spo2)))
         else:
             spo2_value = rand.randint(96, 100)  # Use random value as fallback
+
     except Exception as e:
         print(f"Error reading SpO2: {e}")
         spo2_value = rand.randint(96, 100)  # Use random value if reading fails
